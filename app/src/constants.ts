@@ -1,0 +1,8 @@
+export const DEVNET_FORUM_PACKAGE_ID = "0xTODO";
+export const TESTNET_FORUM_PACKAGE_ID = "0x8aa4cf2f3829d66c2e70f5bf4453cfdf925dd8342cf102268c2e2c4190bcaf81";
+export const MAINNET_FORUM_PACKAGE_ID = "0xTODO";
+
+// Forum Object IDs
+export const DEVNET_FORUM_OBJECT_ID = "0xTODO";
+export const TESTNET_FORUM_OBJECT_ID = "0x5da13ca54f6bd2557d30e5165dbca405075619b1deae95135068f07ec9e5323f";
+export const MAINNET_FORUM_OBJECT_ID = "0xTODO";

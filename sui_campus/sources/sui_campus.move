@@ -21,6 +21,8 @@ module sui_campus::forum {
 
     const E_TITLE_EMPTY: u64 = 1;
     const E_CONTENT_EMPTY: u64 = 2;
+    const E_PROFILE_NOT_FOUND: u64 = 3;
+    const E_NICKNAME_EMPTY: u64 = 4;
 
     public struct FORUM has drop {}
 
@@ -58,6 +60,17 @@ module sui_campus::forum {
         is_anonymous: bool,
     }
 
+    public struct Profile has key, store {
+        id: UID,
+        owner: address,
+        nickname: String,
+        birthday: String,        // Format: YYYY-MM-DD
+        gender: String,          // "male", "female", "other", or empty
+        bio: String,             // Personal signature/bio
+        created_at_ms: u64,
+        updated_at_ms: u64,
+    }
+
     // Event
 
     public struct PostCreated has copy, drop {
@@ -87,6 +100,19 @@ module sui_campus::forum {
         author: address,
         comment_seq: u64,
         has_uri: bool,
+        ts_ms: u64,
+    }
+
+    public struct ProfileCreated has copy, drop {
+        profile_id: ID,
+        owner: address,
+        nickname: String,
+        ts_ms: u64,
+    }
+
+    public struct ProfileUpdated has copy, drop {
+        profile_id: ID,
+        owner: address,
         ts_ms: u64,
     }
 
@@ -302,6 +328,110 @@ module sui_campus::forum {
 
     public fun get_forum_post_id(forum: &Forum, post_seq: u64): ID {
         *sui::table::borrow(&forum.posts, post_seq)
+    }
+
+    // Profile Functions
+
+    public fun create_profile(
+        nickname: String,
+        birthday: String,
+        gender: String,
+        bio: String,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        if (std::string::is_empty(&nickname)) {
+            abort E_NICKNAME_EMPTY
+        };
+
+        let ts = sui::clock::timestamp_ms(clock);
+        let owner = tx_context::sender(ctx);
+
+        let profile = Profile {
+            id: object::new(ctx),
+            owner,
+            nickname,
+            birthday,
+            gender,
+            bio,
+            created_at_ms: ts,
+            updated_at_ms: ts,
+        };
+
+        let profile_id = object::uid_to_inner(&profile.id);
+        let nickname = profile.nickname;
+
+        transfer::transfer(profile, owner);
+
+        event::emit(ProfileCreated {
+            profile_id,
+            owner,
+            nickname,
+            ts_ms: ts,
+        });
+    }
+
+    public fun update_profile(
+        profile: &mut Profile,
+        nickname: String,
+        birthday: String,
+        gender: String,
+        bio: String,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let owner = tx_context::sender(ctx);
+        assert!(profile.owner == owner, E_PROFILE_NOT_FOUND);
+
+        if (std::string::is_empty(&nickname)) {
+            abort E_NICKNAME_EMPTY
+        };
+
+        let ts = sui::clock::timestamp_ms(clock);
+
+        profile.nickname = nickname;
+        profile.birthday = birthday;
+        profile.gender = gender;
+        profile.bio = bio;
+        profile.updated_at_ms = ts;
+
+        let profile_id = object::uid_to_inner(&profile.id);
+
+        event::emit(ProfileUpdated {
+            profile_id,
+            owner,
+            ts_ms: ts,
+        });
+    }
+
+    // Profile Query Functions
+
+    public fun get_profile_owner(profile: &Profile): address {
+        profile.owner
+    }
+
+    public fun get_profile_nickname(profile: &Profile): String {
+        profile.nickname
+    }
+
+    public fun get_profile_birthday(profile: &Profile): String {
+        profile.birthday
+    }
+
+    public fun get_profile_gender(profile: &Profile): String {
+        profile.gender
+    }
+
+    public fun get_profile_bio(profile: &Profile): String {
+        profile.bio
+    }
+
+    public fun get_profile_created_at(profile: &Profile): u64 {
+        profile.created_at_ms
+    }
+
+    public fun get_profile_updated_at(profile: &Profile): u64 {
+        profile.updated_at_ms
     }
 
 }

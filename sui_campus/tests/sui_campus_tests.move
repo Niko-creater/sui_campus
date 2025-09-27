@@ -4,7 +4,7 @@ module sui_campus::sui_campus_tests {
     use sui::clock::{Self, Clock};
     use sui::package::{Self};
     use std::string::{Self};
-    use sui_campus::forum::{Self, Forum, Post};
+    use sui_campus::forum::{Self, Forum, Post, Profile};
     use sui::sui::SUI;
 
     public struct SUI_CAMPUS_TESTS has drop {}
@@ -984,6 +984,401 @@ module sui_campus::sui_campus_tests {
         };
         
         package::burn_publisher(publisher);
+        
+        test_scenario::end(scenario);
+    }
+
+    // Profile Tests
+
+    #[test]
+    fun test_create_profile() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            clock::share_for_testing(clock);
+        };
+
+        // Create profile
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname = string::utf8(b"TestUser");
+            let birthday = string::utf8(b"1990-01-01");
+            let gender = string::utf8(b"male");
+            let bio = string::utf8(b"Hello, I'm a test user!");
+            
+            forum::create_profile(nickname, birthday, gender, bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // Verify created profile
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let profile = test_scenario::take_from_sender<Profile>(&scenario);
+            
+            // Verify profile fields
+            let profile_owner = forum::get_profile_owner(&profile);
+            assert!(profile_owner == USER, 0);
+            
+            let profile_nickname = forum::get_profile_nickname(&profile);
+            assert!(profile_nickname == string::utf8(b"TestUser"), 1);
+            
+            let profile_birthday = forum::get_profile_birthday(&profile);
+            assert!(profile_birthday == string::utf8(b"1990-01-01"), 2);
+            
+            let profile_gender = forum::get_profile_gender(&profile);
+            assert!(profile_gender == string::utf8(b"male"), 3);
+            
+            let profile_bio = forum::get_profile_bio(&profile);
+            assert!(profile_bio == string::utf8(b"Hello, I'm a test user!"), 4);
+            
+            let profile_created_at = forum::get_profile_created_at(&profile);
+            assert!(profile_created_at == 1000, 5);
+            
+            let profile_updated_at = forum::get_profile_updated_at(&profile);
+            assert!(profile_updated_at == 1000, 6);
+            
+            test_scenario::return_to_sender(&scenario, profile);
+        };
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = sui_campus::forum::E_NICKNAME_EMPTY)]
+    fun test_create_profile_empty_nickname() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            clock::share_for_testing(clock);
+        };
+
+        // Try to create profile with empty nickname
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let empty_nickname = string::utf8(b"");
+            let birthday = string::utf8(b"1990-01-01");
+            let gender = string::utf8(b"male");
+            let bio = string::utf8(b"Hello, I'm a test user!");
+            
+            forum::create_profile(empty_nickname, birthday, gender, bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_update_profile() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            clock::share_for_testing(clock);
+        };
+
+        // Create profile
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname = string::utf8(b"TestUser");
+            let birthday = string::utf8(b"1990-01-01");
+            let gender = string::utf8(b"male");
+            let bio = string::utf8(b"Hello, I'm a test user!");
+            
+            forum::create_profile(nickname, birthday, gender, bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // Update profile
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let mut profile = test_scenario::take_from_sender<Profile>(&scenario);
+            let mut clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            // Update clock time
+            clock::set_for_testing(&mut clock, 2000);
+            
+            let new_nickname = string::utf8(b"UpdatedUser");
+            let new_birthday = string::utf8(b"1995-05-15");
+            let new_gender = string::utf8(b"female");
+            let new_bio = string::utf8(b"Updated bio with new information!");
+            
+            forum::update_profile(&mut profile, new_nickname, new_birthday, new_gender, new_bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            // Verify updated fields
+            let profile_nickname = forum::get_profile_nickname(&profile);
+            assert!(profile_nickname == string::utf8(b"UpdatedUser"), 0);
+            
+            let profile_birthday = forum::get_profile_birthday(&profile);
+            assert!(profile_birthday == string::utf8(b"1995-05-15"), 1);
+            
+            let profile_gender = forum::get_profile_gender(&profile);
+            assert!(profile_gender == string::utf8(b"female"), 2);
+            
+            let profile_bio = forum::get_profile_bio(&profile);
+            assert!(profile_bio == string::utf8(b"Updated bio with new information!"), 3);
+            
+            let profile_created_at = forum::get_profile_created_at(&profile);
+            assert!(profile_created_at == 1000, 4); // Should remain unchanged
+            
+            let profile_updated_at = forum::get_profile_updated_at(&profile);
+            assert!(profile_updated_at == 2000, 5); // Should be updated
+            
+            test_scenario::return_to_sender(&scenario, profile);
+            test_scenario::return_shared(clock);
+        };
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = sui_campus::forum::E_NICKNAME_EMPTY)]
+    fun test_update_profile_empty_nickname() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            clock::share_for_testing(clock);
+        };
+
+        // Create profile
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname = string::utf8(b"TestUser");
+            let birthday = string::utf8(b"1990-01-01");
+            let gender = string::utf8(b"male");
+            let bio = string::utf8(b"Hello, I'm a test user!");
+            
+            forum::create_profile(nickname, birthday, gender, bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // Try to update profile with empty nickname
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let mut profile = test_scenario::take_from_sender<Profile>(&scenario);
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let empty_nickname = string::utf8(b"");
+            let new_birthday = string::utf8(b"1995-05-15");
+            let new_gender = string::utf8(b"female");
+            let new_bio = string::utf8(b"Updated bio!");
+            
+            forum::update_profile(&mut profile, empty_nickname, new_birthday, new_gender, new_bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_to_sender(&scenario, profile);
+            test_scenario::return_shared(clock);
+        };
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    #[expected_failure(abort_code = sui_campus::forum::E_PROFILE_NOT_FOUND)]
+    fun test_update_profile_wrong_owner() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            clock::share_for_testing(clock);
+        };
+
+        // Create profile with USER
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname = string::utf8(b"TestUser");
+            let birthday = string::utf8(b"1990-01-01");
+            let gender = string::utf8(b"male");
+            let bio = string::utf8(b"Hello, I'm a test user!");
+            
+            forum::create_profile(nickname, birthday, gender, bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // Try to update profile with different user
+        test_scenario::next_tx(&mut scenario, @0x2);
+        {
+            // First, get the profile from the original owner's address
+            let mut profile = test_scenario::take_from_address<Profile>(&scenario, USER);
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let new_nickname = string::utf8(b"HackerUser");
+            let new_birthday = string::utf8(b"1995-05-15");
+            let new_gender = string::utf8(b"female");
+            let new_bio = string::utf8(b"Trying to hack!");
+            
+            forum::update_profile(&mut profile, new_nickname, new_birthday, new_gender, new_bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_to_address(USER, profile);
+            test_scenario::return_shared(clock);
+        };
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_multiple_profiles() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            clock::share_for_testing(clock);
+        };
+
+        // User 1 creates profile
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname1 = string::utf8(b"User1");
+            let birthday1 = string::utf8(b"1990-01-01");
+            let gender1 = string::utf8(b"male");
+            let bio1 = string::utf8(b"First user profile");
+            
+            forum::create_profile(nickname1, birthday1, gender1, bio1, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // User 2 creates profile
+        test_scenario::next_tx(&mut scenario, @0x2);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname2 = string::utf8(b"User2");
+            let birthday2 = string::utf8(b"1995-05-15");
+            let gender2 = string::utf8(b"female");
+            let bio2 = string::utf8(b"Second user profile");
+            
+            forum::create_profile(nickname2, birthday2, gender2, bio2, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // User 3 creates profile
+        test_scenario::next_tx(&mut scenario, @0x3);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname3 = string::utf8(b"User3");
+            let birthday3 = string::utf8(b"2000-12-25");
+            let gender3 = string::utf8(b"other");
+            let bio3 = string::utf8(b"Third user profile");
+            
+            forum::create_profile(nickname3, birthday3, gender3, bio3, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // Verify all profiles exist and have correct data
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let profile1 = test_scenario::take_from_sender<Profile>(&scenario);
+            
+            let profile1_nickname = forum::get_profile_nickname(&profile1);
+            assert!(profile1_nickname == string::utf8(b"User1"), 0);
+            
+            let profile1_owner = forum::get_profile_owner(&profile1);
+            assert!(profile1_owner == USER, 1);
+            
+            test_scenario::return_to_sender(&scenario, profile1);
+        };
+
+        test_scenario::next_tx(&mut scenario, @0x2);
+        {
+            let profile2 = test_scenario::take_from_sender<Profile>(&scenario);
+            
+            let profile2_nickname = forum::get_profile_nickname(&profile2);
+            assert!(profile2_nickname == string::utf8(b"User2"), 2);
+            
+            let profile2_owner = forum::get_profile_owner(&profile2);
+            assert!(profile2_owner == @0x2, 3);
+            
+            test_scenario::return_to_sender(&scenario, profile2);
+        };
+
+        test_scenario::next_tx(&mut scenario, @0x3);
+        {
+            let profile3 = test_scenario::take_from_sender<Profile>(&scenario);
+            
+            let profile3_nickname = forum::get_profile_nickname(&profile3);
+            assert!(profile3_nickname == string::utf8(b"User3"), 4);
+            
+            let profile3_owner = forum::get_profile_owner(&profile3);
+            assert!(profile3_owner == @0x3, 5);
+            
+            test_scenario::return_to_sender(&scenario, profile3);
+        };
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_profile_with_empty_optional_fields() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            clock::share_for_testing(clock);
+        };
+
+        // Create profile with some empty optional fields
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let nickname = string::utf8(b"MinimalUser");
+            let birthday = string::utf8(b""); // Empty birthday
+            let gender = string::utf8(b""); // Empty gender
+            let bio = string::utf8(b"Minimal bio"); // Non-empty bio
+            
+            forum::create_profile(nickname, birthday, gender, bio, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(clock);
+        };
+
+        // Verify profile with empty optional fields
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let profile = test_scenario::take_from_sender<Profile>(&scenario);
+            
+            let profile_nickname = forum::get_profile_nickname(&profile);
+            assert!(profile_nickname == string::utf8(b"MinimalUser"), 0);
+            
+            let profile_birthday = forum::get_profile_birthday(&profile);
+            assert!(profile_birthday == string::utf8(b""), 1);
+            
+            let profile_gender = forum::get_profile_gender(&profile);
+            assert!(profile_gender == string::utf8(b""), 2);
+            
+            let profile_bio = forum::get_profile_bio(&profile);
+            assert!(profile_bio == string::utf8(b"Minimal bio"), 3);
+            
+            test_scenario::return_to_sender(&scenario, profile);
+        };
         
         test_scenario::end(scenario);
     }
