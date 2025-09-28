@@ -14,6 +14,7 @@ import { TipPost } from "./TipPost";
 import { WalrusBasicTest } from "./components/WalrusBasicTest";
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { WalrusClient, WalrusFile } from '@mysten/walrus';
+import { useUserProfiles } from "./hooks/useUserProfiles";
 
 interface Post {
   id: string;
@@ -26,11 +27,18 @@ interface Post {
   comment_index: number;
 }
 
+interface Comment {
+  author: string;
+  content: string;
+  created_at_ms: number;
+}
+
 export function Forum({ forumId }: { forumId: string }) {
   const currentAccount = useCurrentAccount();
   const forumPackageId = useNetworkVariable("forumPackageId");
   const suiClient = useSuiClient();
   const { mutate: signAndExecute } = useSignAndExecuteTransaction();
+  const { getUserNickname, loadProfileForAddress } = useUserProfiles();
   const { data, isPending, error, refetch } = useSuiClientQuery("getObject", {
     id: forumId,
     options: {
@@ -49,6 +57,12 @@ export function Forum({ forumId }: { forumId: string }) {
   // Tip post states
   const [showTipDialog, setShowTipDialog] = useState(false);
   const [selectedPost, setSelectedPost] = useState<{ id: string; title: string } | null>(null);
+  
+  // Comment states
+  const [comments, setComments] = useState<{ [postId: string]: Comment[] }>({});
+  const [showComments, setShowComments] = useState<{ [postId: string]: boolean }>({});
+  const [newComment, setNewComment] = useState<{ [postId: string]: string }>({});
+  const [loadingComments, setLoadingComments] = useState<{ [postId: string]: boolean }>({});
   
   // Walrus upload states
   const [isUploadingToWalrus, setIsUploadingToWalrus] = useState(false);
@@ -132,11 +146,202 @@ export function Forum({ forumId }: { forumId: string }) {
       
       const validPosts = postDetails.filter(post => post !== null);
       setPosts(validPosts);
+      
+      // Load profiles for all post authors
+      validPosts.forEach(post => {
+        if (post) {
+          loadProfileForAddress(post.author);
+        }
+      });
     } catch (error) {
       console.error("Error fetching posts:", error);
     } finally {
       setLoadingPosts(false);
     }
+  };
+
+  // Fetch comments for a specific post
+  const fetchComments = async (postId: string) => {
+    if (!forumPackageId) return;
+    
+    setLoadingComments(prev => ({ ...prev, [postId]: true }));
+    try {
+      // First, get the post object to check comment count
+      const postData = await suiClient.getObject({
+        id: postId,
+        options: { showContent: true }
+      });
+      
+      if (postData.data?.content?.dataType === "moveObject") {
+        const fields = postData.data.content.fields as any;
+        const commentCount = fields.comment_index;
+        console.log(`Post ${postId} has ${commentCount} comments`);
+        
+        if (commentCount === 0) {
+          setComments(prev => ({ ...prev, [postId]: [] }));
+          return;
+        }
+        
+        // Fetch each comment individually using get_comment_data
+        const comments: Comment[] = [];
+        for (let i = 1; i <= commentCount; i++) {
+          try {
+            const result = await suiClient.devInspectTransactionBlock({
+              transactionBlock: (() => {
+                const tx = new Transaction();
+                tx.moveCall({
+                  arguments: [tx.object(postId), tx.pure.u64(i)],
+                  target: `${forumPackageId}::forum::get_comment_data`,
+                });
+                return tx;
+              })(),
+              sender: "0x0000000000000000000000000000000000000000000000000000000000000000"
+            });
+
+            if (result.results && result.results[0]?.returnValues) {
+              const returnValues = result.results[0].returnValues;
+              console.log(`Comment ${i} return values:`, returnValues);
+              
+              if (returnValues.length >= 3) {
+                // Decode BCS-encoded data
+                const authorBytes = returnValues[0][0] as number[];
+                const contentBytes = returnValues[1][0] as number[];
+                const created_at_ms = returnValues[2][0] as unknown as number;
+                
+                console.log(`Comment ${i} raw data:`, { authorBytes, contentBytes, created_at_ms });
+                
+                // Convert byte arrays to strings
+                let author = '';
+                let content = '';
+                
+                try {
+                  // For address, convert to hex string
+                  author = authorBytes ? '0x' + authorBytes.map(byte => byte.toString(16).padStart(2, '0')).join('') : '';
+                  
+                  // For content, handle BCS-encoded string
+                  if (contentBytes && contentBytes.length > 0) {
+                    // BCS strings are length-prefixed, so we need to skip the length bytes
+                    let stringBytes = contentBytes;
+                    
+                    // Try to find the actual string content by skipping length prefix
+                    // BCS uses variable-length encoding for length, so we need to be smart about it
+                    let offset = 0;
+                    
+                    // Check if first byte is a length prefix (0-127 for single byte length)
+                    if (contentBytes[0] < 128 && contentBytes[0] > 0) {
+                      offset = 1;
+                    } else if (contentBytes.length > 1) {
+                      // Check for two-byte length prefix
+                      const length = (contentBytes[0] & 0x7F) | ((contentBytes[1] & 0x7F) << 7);
+                      if (length > 0 && length < contentBytes.length - 2) {
+                        offset = 2;
+                      }
+                    }
+                    
+                    // Extract the actual string bytes
+                    if (offset > 0) {
+                      const length = contentBytes[offset - 1];
+                      stringBytes = contentBytes.slice(offset, offset + length);
+                    }
+                    
+                    // Decode the string bytes
+                    try {
+                      content = new TextDecoder('utf-8', { fatal: false }).decode(new Uint8Array(stringBytes));
+                      // Remove any null characters or replacement characters
+                      content = content.replace(/\0/g, '').replace(/\uFFFD/g, '');
+                    } catch (e) {
+                      // Fallback: direct character conversion
+                      content = stringBytes.map(byte => byte > 0 ? String.fromCharCode(byte) : '').join('');
+                    }
+                  }
+                } catch (decodeError) {
+                  console.error(`Error decoding comment ${i}:`, decodeError);
+                  // Fallback: try to convert bytes directly to string
+                  author = authorBytes ? '0x' + authorBytes.map(byte => byte.toString(16).padStart(2, '0')).join('') : '';
+                  content = contentBytes ? contentBytes.map(byte => String.fromCharCode(byte)).join('') : '';
+                }
+                
+                console.log(`Comment ${i} decoded:`, { author, content, created_at_ms });
+                
+                comments.push({
+                  author: author || '',
+                  content: content || '',
+                  created_at_ms: created_at_ms || 0,
+                });
+              }
+            }
+          } catch (commentError) {
+            console.error(`Error fetching comment ${i}:`, commentError);
+          }
+        }
+        
+        console.log('All comments:', comments);
+        setComments(prev => ({ ...prev, [postId]: comments }));
+        
+        // Load profiles for all comment authors
+        comments.forEach(comment => {
+          loadProfileForAddress(comment.author);
+        });
+      }
+    } catch (error) {
+      console.error(`Error fetching comments for post ${postId}:`, error);
+    } finally {
+      setLoadingComments(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  // Add comment to a post
+  const addComment = async (postId: string, content: string) => {
+    if (!currentAccount || !forumPackageId) return;
+    
+    setWaitingForTxn("Adding comment...");
+    try {
+      const tx = new Transaction();
+      tx.moveCall({
+        arguments: [
+          tx.object(postId),
+          tx.pure.string(content),
+          tx.object("0x6"), // Clock object
+        ],
+        target: `${forumPackageId}::forum::add_comment`,
+      });
+
+      signAndExecute(
+        { transaction: tx },
+        {
+          onSuccess: async (result) => {
+            await suiClient.waitForTransaction({ digest: result.digest });
+            setWaitingForTxn("");
+            setNewComment(prev => ({ ...prev, [postId]: "" }));
+            // Refresh comments for this post
+            await fetchComments(postId);
+            // Refresh posts to update comment count
+            await fetchPosts();
+          },
+          onError: (error) => {
+            console.error('❌ Add comment failed:', error);
+            setWaitingForTxn("");
+          },
+        }
+      );
+    } catch (error) {
+      console.error('❌ Add comment failed:', error);
+      setWaitingForTxn("");
+    }
+  };
+
+  // Toggle comments visibility for a post
+  const toggleComments = async (postId: string) => {
+    const isCurrentlyVisible = showComments[postId];
+    
+    if (!isCurrentlyVisible) {
+      // If opening comments and we don't have them loaded, fetch them
+      if (!comments[postId]) {
+        await fetchComments(postId);
+      }
+    }
+    
+    setShowComments(prev => ({ ...prev, [postId]: !isCurrentlyVisible }));
   };
 
   // Fetch posts when Forum data is loaded
@@ -444,10 +649,10 @@ export function Forum({ forumId }: { forumId: string }) {
       <>
         <Heading size="3">Campus Forum</Heading>
         
-        {/* Walrus Test Panel - Only show in development */}
-        {import.meta.env.DEV && (
+        {/* Walrus Test Panel - Hidden for now, can be enabled later */}
+        {/* {import.meta.env.DEV && (
           <WalrusBasicTest />
-        )}
+        )} */}
         
         <Flex direction="column" gap="3" mt="3">
         <Flex justify="between" align="center">
@@ -536,84 +741,162 @@ export function Forum({ forumId }: { forumId: string }) {
           ) : (
             <Flex direction="column" gap="3">
               {posts.map((post, index) => (
-                <Card key={post.id} style={{ padding: '12px' }}>
-                  <Flex direction="column" gap="2">
-                    <Flex justify="between" align="start">
-                      <Heading size="3">{post.title}</Heading>
-                      <Badge color="blue">#{index + 1}</Badge>
-                    </Flex>
-                    <Text size="2" color="gray">
-                      Author: {post.author.slice(0, 8)}...{post.author.slice(-8)}
-                    </Text>
-                    
-                    {/* Post Content */}
-                    <div>
-                      {loadingContent[post.id] ? (
-                        <Flex align="center" gap="2">
-                          <ClipLoader size={16} />
-                          <Text size="2" color="gray">Loading content...</Text>
-                        </Flex>
-                      ) : postContents[post.id] ? (
-                        <Text size="2" style={{ 
-                          whiteSpace: 'pre-wrap',
-                          backgroundColor: 'var(--gray-2)',
-                          padding: '8px',
-                          borderRadius: '4px',
-                          border: '1px solid var(--gray-6)'
-                        }}>
-                          {postContents[post.id]}
-                        </Text>
-                      ) : (
-                        <Button
-                          size="1"
-                          variant="outline"
-                          onClick={() => loadPostContent(post.id, post.blob_id)}
-                        >
-                          📖 Load Content
-                        </Button>
-                      )}
-                    </div>
-                    
-                    <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
-                      File ID: {post.blob_id.slice(0, 20)}...
-                    </Text>
-                    <Flex gap="3" align="center" justify="between">
-                      <Flex gap="3" align="center">
-                        <Badge color="green">
-                          💰 {(post.tip_total / 1000000000).toFixed(4)} SUI
-                        </Badge>
-                        <Badge color="red">
-                          👎 {post.dislike_count}
-                        </Badge>
-                        <Badge color="blue">
-                          💬 {post.comment_index} comments
-                        </Badge>
-                        <Text size="1" color="gray">
-                          {new Date(post.created_at_ms).toLocaleString()}
-                        </Text>
+                <div key={post.id}>
+                  <Card style={{ padding: '12px' }}>
+                    <Flex direction="column" gap="2">
+                      <Flex justify="between" align="start">
+                        <Heading size="3">{post.title}</Heading>
+                        <Badge color="blue">#{index + 1}</Badge>
                       </Flex>
-                      {currentAccount && currentAccount.address === post.author ? (
-                        <Button
-                          size="1"
-                          variant="soft"
-                          color="gray"
-                          disabled
-                        >
-                          💰 Your Post
-                        </Button>
-                      ) : (
-                        <Button
-                          size="1"
-                          variant="soft"
-                          color="green"
-                          onClick={() => handleTipPost(post.id, post.title, post.author)}
-                        >
-                          💰 Tip
-                        </Button>
-                      )}
+                      <Text size="2" color="gray">
+                        Author: {getUserNickname(post.author)}
+                      </Text>
+                      
+                      {/* Post Content */}
+                      <div>
+                        {loadingContent[post.id] ? (
+                          <Flex align="center" gap="2">
+                            <ClipLoader size={16} />
+                            <Text size="2" color="gray">Loading content...</Text>
+                          </Flex>
+                        ) : postContents[post.id] ? (
+                          <Text size="2" style={{ 
+                            whiteSpace: 'pre-wrap',
+                            backgroundColor: 'var(--gray-2)',
+                            padding: '8px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--gray-6)'
+                          }}>
+                            {postContents[post.id]}
+                          </Text>
+                        ) : (
+                          <Button
+                            size="1"
+                            variant="outline"
+                            onClick={() => loadPostContent(post.id, post.blob_id)}
+                          >
+                            📖 Load Content
+                          </Button>
+                        )}
+                      </div>
+                      
+                      <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
+                        File ID: {post.blob_id.slice(0, 20)}...
+                      </Text>
+                      <Flex gap="3" align="center" justify="between">
+                        <Flex gap="3" align="center">
+                          <Badge color="green">
+                            💰 {(post.tip_total / 1000000000).toFixed(4)} SUI
+                          </Badge>
+                          <Badge color="red">
+                            👎 {post.dislike_count}
+                          </Badge>
+                          <Badge color="blue">
+                            💬 {post.comment_index} comments
+                          </Badge>
+                          <Text size="1" color="gray">
+                            {new Date(post.created_at_ms).toLocaleString()}
+                          </Text>
+                        </Flex>
+                        <Flex gap="2">
+                          <Button
+                            size="1"
+                            variant="soft"
+                            color="blue"
+                            onClick={() => toggleComments(post.id)}
+                          >
+                            {showComments[post.id] ? "🔼 Hide Comments" : "💬 View Comments"}
+                          </Button>
+                          {currentAccount && currentAccount.address === post.author ? (
+                            <Button
+                              size="1"
+                              variant="soft"
+                              color="gray"
+                              disabled
+                            >
+                              💰 Your Post
+                            </Button>
+                          ) : (
+                            <Button
+                              size="1"
+                              variant="soft"
+                              color="green"
+                              onClick={() => handleTipPost(post.id, post.title, post.author)}
+                            >
+                              💰 Tip
+                            </Button>
+                          )}
+                        </Flex>
+                      </Flex>
                     </Flex>
-                  </Flex>
-                </Card>
+                  </Card>
+                  
+                  {/* Comments Section */}
+                  {showComments[post.id] && (
+                    <Card style={{ marginTop: '8px', marginLeft: '16px' }}>
+                      <Flex direction="column" gap="3">
+                        <Heading size="3">Comments</Heading>
+                        
+                        {/* Add Comment Form */}
+                        {currentAccount && (
+                          <Flex direction="column" gap="2">
+                            <TextArea
+                              placeholder="Write a comment..."
+                              value={newComment[post.id] || ""}
+                              onChange={(e) => setNewComment(prev => ({ ...prev, [post.id]: e.target.value }))}
+                              rows={3}
+                            />
+                            <Button
+                              size="1"
+                              onClick={() => {
+                                const content = newComment[post.id];
+                                if (content && content.trim()) {
+                                  addComment(post.id, content.trim());
+                                }
+                              }}
+                              disabled={!newComment[post.id]?.trim() || waitingForTxn === "Adding comment..."}
+                            >
+                              {waitingForTxn === "Adding comment..." ? <ClipLoader size={16} /> : "Add Comment"}
+                            </Button>
+                          </Flex>
+                        )}
+                        
+                        {/* Comments List */}
+                        <Flex direction="column" gap="2">
+                          {loadingComments[post.id] ? (
+                            <Flex align="center" gap="2">
+                              <ClipLoader size={16} />
+                              <Text size="2" color="gray">Loading comments...</Text>
+                            </Flex>
+                          ) : comments[post.id] && comments[post.id].length > 0 ? (
+                            comments[post.id].map((comment, commentIndex) => (
+                              <Card key={commentIndex} style={{ backgroundColor: 'var(--gray-2)' }}>
+                                <Flex direction="column" gap="2">
+                                  <Flex align="center" gap="2">
+                                    <Text size="2" weight="bold">
+                                      {getUserNickname(comment.author)}
+                                    </Text>
+                                    {comment.author === post.author && (
+                                      <Badge color="orange" size="1">OP</Badge>
+                                    )}
+                                    <Text size="1" color="gray">
+                                      {new Date(comment.created_at_ms).toLocaleString()}
+                                    </Text>
+                                  </Flex>
+                                  <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>
+                                    {comment.content}
+                                  </Text>
+                                </Flex>
+                              </Card>
+                            ))
+                          ) : (
+                            <Text size="2" color="gray">No comments yet. Be the first to comment!</Text>
+                          )}
+                        </Flex>
+                      </Flex>
+                    </Card>
+                  )}
+                </div>
               ))}
             </Flex>
           )}

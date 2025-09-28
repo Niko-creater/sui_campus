@@ -48,10 +48,9 @@ module sui_campus::forum {
         tips: Table<u64, TipRecord>,         
     }
 
-    public struct CommentData has store {
+    public struct CommentData has store, copy, drop {
         author: address,
         content: String,                    
-        blob_id: String,
         created_at_ms: u64,
     }
 
@@ -261,14 +260,10 @@ module sui_campus::forum {
     public fun add_comment(
         post: &mut Post,
         content: String,
-        blob_id: String,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         if (std::string::is_empty(&content)) {
-            abort E_CONTENT_EMPTY
-        };
-        if (std::string::is_empty(&blob_id)) {
             abort E_CONTENT_EMPTY
         };
 
@@ -281,7 +276,6 @@ module sui_campus::forum {
         let comment_data = CommentData {
             author,
             content,
-            blob_id,
             created_at_ms: ts,
         };
         
@@ -291,7 +285,7 @@ module sui_campus::forum {
             post_id: object::uid_to_inner(&post.id),
             author,
             comment_seq,
-            has_uri: true, 
+            has_uri: false, 
             ts_ms: ts,
         });
     }
@@ -375,9 +369,34 @@ module sui_campus::forum {
         post.comment_index
     }
 
-    public fun get_comment_data(post: &Post, comment_seq: u64): (address, String, String, u64) {
+    public fun get_comment_data(post: &Post, comment_seq: u64): (address, String, u64) {
         let comment_data = sui::table::borrow(&post.comments, comment_seq);
-        (comment_data.author, comment_data.content, comment_data.blob_id, comment_data.created_at_ms)
+        (comment_data.author, comment_data.content, comment_data.created_at_ms)
+    }
+
+    public fun get_all_comments(post: &Post): vector<CommentData> {
+        let mut result = vector::empty<CommentData>();
+        let comment_count = post.comment_index;
+        let mut i = 1;
+        while (i <= comment_count) {
+            let comment_data = sui::table::borrow(&post.comments, i);
+            vector::push_back(&mut result, *comment_data);
+            i = i + 1;
+        };
+        result
+    }
+
+    // CommentData getter functions
+    public fun get_comment_author(comment: &CommentData): address {
+        comment.author
+    }
+
+    public fun get_comment_content(comment: &CommentData): String {
+        comment.content
+    }
+
+    public fun get_comment_created_at(comment: &CommentData): u64 {
+        comment.created_at_ms
     }
 
     // Forum query functions

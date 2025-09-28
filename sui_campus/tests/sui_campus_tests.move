@@ -417,20 +417,18 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let comment_content = string::utf8(b"This is a test comment");
-            let comment_blob_id = string::utf8(b"comment_blob_1234567890");
             
-            forum::add_comment(&mut post, comment_content, comment_blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::add_comment(&mut post, comment_content, &clock, test_scenario::ctx(&mut scenario));
             
             // Verify comment count
             let comment_count = forum::get_post_comment_count(&post);
             assert!(comment_count == 1, 0);
             
             // Verify comment data
-            let (author, content, blob_id, created_at) = forum::get_comment_data(&post, 1);
+            let (author, content, created_at) = forum::get_comment_data(&post, 1);
             assert!(author == @0x2, 1);
             assert!(content == string::utf8(b"This is a test comment"), 2);
-            assert!(blob_id == string::utf8(b"comment_blob_1234567890"), 3);
-            assert!(created_at == 1000, 4);
+            assert!(created_at == 1000, 3);
             
             test_scenario::return_shared(post);
             test_scenario::return_shared(clock);
@@ -481,62 +479,8 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let empty_content = string::utf8(b"");
-            let comment_blob_id = string::utf8(b"comment_blob_1234567890");
             
-            forum::add_comment(&mut post, empty_content, comment_blob_id, &clock, test_scenario::ctx(&mut scenario));
-            
-            test_scenario::return_shared(post);
-            test_scenario::return_shared(clock);
-        };
-        
-        package::burn_publisher(publisher);
-        
-        test_scenario::end(scenario);
-    }
-
-    #[test]
-    #[expected_failure(abort_code = sui_campus::forum::E_CONTENT_EMPTY)]
-    fun test_add_comment_empty_blob_id() {
-        let mut scenario = test_scenario::begin(ADMIN);
-        let publisher = {
-            forum::init_for_testing(test_scenario::ctx(&mut scenario))
-        };
-        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
-        clock::set_for_testing(&mut clock, 1000);
-
-        {
-            forum::init_forum(&publisher, test_scenario::ctx(&mut scenario));
-        };
-        
-        {
-            clock::share_for_testing(clock);
-        };
-        
-        // Create post
-        test_scenario::next_tx(&mut scenario, USER);
-        {
-            let mut forum = test_scenario::take_shared<Forum>(&scenario);
-            let clock = test_scenario::take_shared<Clock>(&scenario);
-            
-            let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
-            
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
-            
-            test_scenario::return_shared(forum);
-            test_scenario::return_shared(clock);
-        };
-
-        // Try to add comment with empty blob_id
-        test_scenario::next_tx(&mut scenario, @0x2);
-        {
-            let mut post = test_scenario::take_shared<forum::Post>(&scenario);
-            let clock = test_scenario::take_shared<Clock>(&scenario);
-            
-            let comment_content = string::utf8(b"This is a test comment");
-            let empty_blob_id = string::utf8(b"");
-            
-            forum::add_comment(&mut post, comment_content, empty_blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::add_comment(&mut post, empty_content, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(post);
             test_scenario::return_shared(clock);
@@ -546,6 +490,7 @@ module sui_campus::sui_campus_tests {
         
         test_scenario::end(scenario);
     }
+
 
     #[test]
     fun test_multiple_comments() {
@@ -586,9 +531,8 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let comment_content1 = string::utf8(b"First comment");
-            let comment_blob_id1 = string::utf8(b"comment_blob_1");
             
-            forum::add_comment(&mut post, comment_content1, comment_blob_id1, &clock, test_scenario::ctx(&mut scenario));
+            forum::add_comment(&mut post, comment_content1, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(post);
             test_scenario::return_shared(clock);
@@ -601,25 +545,22 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let comment_content2 = string::utf8(b"Second comment");
-            let comment_blob_id2 = string::utf8(b"comment_blob_2");
             
-            forum::add_comment(&mut post, comment_content2, comment_blob_id2, &clock, test_scenario::ctx(&mut scenario));
+            forum::add_comment(&mut post, comment_content2, &clock, test_scenario::ctx(&mut scenario));
             
             // Verify comment count
             let comment_count = forum::get_post_comment_count(&post);
             assert!(comment_count == 2, 0);
             
             // Verify first comment
-            let (author1, content1, blob_id1, _) = forum::get_comment_data(&post, 1);
+            let (author1, content1, _) = forum::get_comment_data(&post, 1);
             assert!(author1 == @0x2, 1);
             assert!(content1 == string::utf8(b"First comment"), 2);
-            assert!(blob_id1 == string::utf8(b"comment_blob_1"), 3);
             
             // Verify second comment
-            let (author2, content2, blob_id2, _) = forum::get_comment_data(&post, 2);
-            assert!(author2 == @0x3, 4);
-            assert!(content2 == string::utf8(b"Second comment"), 5);
-            assert!(blob_id2 == string::utf8(b"comment_blob_2"), 6);
+            let (author2, content2, _) = forum::get_comment_data(&post, 2);
+            assert!(author2 == @0x3, 3);
+            assert!(content2 == string::utf8(b"Second comment"), 4);
             
             test_scenario::return_shared(post);
             test_scenario::return_shared(clock);
@@ -669,9 +610,8 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let comment_content1 = string::utf8(b"Great post!");
-            let comment_blob_id1 = string::utf8(b"comment_user1");
             
-            forum::add_comment(&mut post, comment_content1, comment_blob_id1, &clock, test_scenario::ctx(&mut scenario));
+            forum::add_comment(&mut post, comment_content1, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(post);
             test_scenario::return_shared(clock);
@@ -684,9 +624,8 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let comment_content2 = string::utf8(b"I agree with this");
-            let comment_blob_id2 = string::utf8(b"comment_user2");
             
-            forum::add_comment(&mut post, comment_content2, comment_blob_id2, &clock, test_scenario::ctx(&mut scenario));
+            forum::add_comment(&mut post, comment_content2, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(post);
             test_scenario::return_shared(clock);
@@ -699,29 +638,25 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let comment_content3 = string::utf8(b"Interesting perspective");
-            let comment_blob_id3 = string::utf8(b"comment_user3");
             
-            forum::add_comment(&mut post, comment_content3, comment_blob_id3, &clock, test_scenario::ctx(&mut scenario));
+            forum::add_comment(&mut post, comment_content3, &clock, test_scenario::ctx(&mut scenario));
             
             // Verify total comment count
             let comment_count = forum::get_post_comment_count(&post);
             assert!(comment_count == 3, 0);
             
             // Verify each user's comment
-            let (author1, content1, blob_id1, _) = forum::get_comment_data(&post, 1);
+            let (author1, content1, _) = forum::get_comment_data(&post, 1);
             assert!(author1 == @0x2, 1);
             assert!(content1 == string::utf8(b"Great post!"), 2);
-            assert!(blob_id1 == string::utf8(b"comment_user1"), 3);
             
-            let (author2, content2, blob_id2, _) = forum::get_comment_data(&post, 2);
-            assert!(author2 == @0x3, 4);
-            assert!(content2 == string::utf8(b"I agree with this"), 5);
-            assert!(blob_id2 == string::utf8(b"comment_user2"), 6);
+            let (author2, content2, _) = forum::get_comment_data(&post, 2);
+            assert!(author2 == @0x3, 3);
+            assert!(content2 == string::utf8(b"I agree with this"), 4);
             
-            let (author3, content3, blob_id3, _) = forum::get_comment_data(&post, 3);
-            assert!(author3 == @0x4, 7);
-            assert!(content3 == string::utf8(b"Interesting perspective"), 8);
-            assert!(blob_id3 == string::utf8(b"comment_user3"), 9);
+            let (author3, content3, _) = forum::get_comment_data(&post, 3);
+            assert!(author3 == @0x4, 5);
+            assert!(content3 == string::utf8(b"Interesting perspective"), 6);
             
             test_scenario::return_shared(post);
             test_scenario::return_shared(clock);
@@ -2004,6 +1939,167 @@ module sui_campus::sui_campus_tests {
             assert!(post_count == 1, 3);
             
             test_scenario::return_shared(forum);
+        };
+        
+        package::burn_publisher(publisher);
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_get_all_comments() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let publisher = {
+            forum::init_for_testing(test_scenario::ctx(&mut scenario))
+        };
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            forum::init_forum(&publisher, test_scenario::ctx(&mut scenario));
+        };
+        
+        {
+            clock::share_for_testing(clock);
+        };
+        
+        // Create post
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let mut forum = test_scenario::take_shared<Forum>(&scenario);
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let title = string::utf8(b"Test Post for Comments");
+            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            
+            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(forum);
+            test_scenario::return_shared(clock);
+        };
+
+        // Add first comment
+        test_scenario::next_tx(&mut scenario, @0x2);
+        {
+            let mut post = test_scenario::take_shared<forum::Post>(&scenario);
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let comment_content1 = string::utf8(b"First comment");
+            forum::add_comment(&mut post, comment_content1, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(post);
+            test_scenario::return_shared(clock);
+        };
+
+        // Add second comment
+        test_scenario::next_tx(&mut scenario, @0x3);
+        {
+            let mut post = test_scenario::take_shared<forum::Post>(&scenario);
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let comment_content2 = string::utf8(b"Second comment");
+            forum::add_comment(&mut post, comment_content2, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(post);
+            test_scenario::return_shared(clock);
+        };
+
+        // Add third comment
+        test_scenario::next_tx(&mut scenario, @0x4);
+        {
+            let mut post = test_scenario::take_shared<forum::Post>(&scenario);
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let comment_content3 = string::utf8(b"Third comment");
+            forum::add_comment(&mut post, comment_content3, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(post);
+            test_scenario::return_shared(clock);
+        };
+
+        // Test get_all_comments function
+        test_scenario::next_tx(&mut scenario, @0x5);
+        {
+            let post = test_scenario::take_shared<forum::Post>(&scenario);
+            
+            // Get all comments
+            let all_comments = forum::get_all_comments(&post);
+            
+            // Verify we got 3 comments
+            let comment_count = vector::length(&all_comments);
+            assert!(comment_count == 3, 0);
+            
+            // Verify first comment
+            let comment1 = vector::borrow(&all_comments, 0);
+            assert!(forum::get_comment_author(comment1) == @0x2, 1);
+            assert!(forum::get_comment_content(comment1) == string::utf8(b"First comment"), 2);
+            assert!(forum::get_comment_created_at(comment1) == 1000, 3);
+            
+            // Verify second comment
+            let comment2 = vector::borrow(&all_comments, 1);
+            assert!(forum::get_comment_author(comment2) == @0x3, 4);
+            assert!(forum::get_comment_content(comment2) == string::utf8(b"Second comment"), 5);
+            assert!(forum::get_comment_created_at(comment2) == 1000, 6);
+            
+            // Verify third comment
+            let comment3 = vector::borrow(&all_comments, 2);
+            assert!(forum::get_comment_author(comment3) == @0x4, 7);
+            assert!(forum::get_comment_content(comment3) == string::utf8(b"Third comment"), 8);
+            assert!(forum::get_comment_created_at(comment3) == 1000, 9);
+            
+            test_scenario::return_shared(post);
+        };
+        
+        package::burn_publisher(publisher);
+        
+        test_scenario::end(scenario);
+    }
+
+    #[test]
+    fun test_get_all_comments_empty() {
+        let mut scenario = test_scenario::begin(ADMIN);
+        let publisher = {
+            forum::init_for_testing(test_scenario::ctx(&mut scenario))
+        };
+        let mut clock = clock::create_for_testing(test_scenario::ctx(&mut scenario));
+        clock::set_for_testing(&mut clock, 1000);
+
+        {
+            forum::init_forum(&publisher, test_scenario::ctx(&mut scenario));
+        };
+        
+        {
+            clock::share_for_testing(clock);
+        };
+        
+        // Create post
+        test_scenario::next_tx(&mut scenario, USER);
+        {
+            let mut forum = test_scenario::take_shared<Forum>(&scenario);
+            let clock = test_scenario::take_shared<Clock>(&scenario);
+            
+            let title = string::utf8(b"Empty Post");
+            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            
+            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            
+            test_scenario::return_shared(forum);
+            test_scenario::return_shared(clock);
+        };
+
+        // Test get_all_comments on empty post
+        test_scenario::next_tx(&mut scenario, @0x2);
+        {
+            let post = test_scenario::take_shared<forum::Post>(&scenario);
+            
+            // Get all comments (should be empty)
+            let all_comments = forum::get_all_comments(&post);
+            
+            // Verify we got 0 comments
+            let comment_count = vector::length(&all_comments);
+            assert!(comment_count == 0, 0);
+            
+            test_scenario::return_shared(post);
         };
         
         package::burn_publisher(publisher);
