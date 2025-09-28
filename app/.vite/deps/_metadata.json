@@ -2,7 +2,108 @@
   "hash": "14e02d1d",
   "configHash": "30aff666",
   "lockfileHash": "b4385f7a",
-  "browserHash": "88590f3e",
-  "optimized": {},
-  "chunks": {}
+  "browserHash": "d57f2f82",
+  "optimized": {
+    "react/jsx-dev-runtime": {
+      "src": "../../node_modules/.pnpm/react@18.3.1/node_modules/react/jsx-dev-runtime.js",
+      "file": "react_jsx-dev-runtime.js",
+      "fileHash": "32ad0a47",
+      "needsInterop": true
+    },
+    "react": {
+      "src": "../../node_modules/.pnpm/react@18.3.1/node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "317865f1",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/.pnpm/react-dom@18.3.1_react@18.3.1/node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "4560bc3f",
+      "needsInterop": true
+    },
+    "@mysten/dapp-kit": {
+      "src": "../../node_modules/.pnpm/@mysten+dapp-kit@0.18.0_@tanstack+react-query@5.90.1_react@18.3.1__@types+react-dom@18._66734a6c7695c2d8ee6a4c93a4dbfa2e/node_modules/@mysten/dapp-kit/dist/esm/index.js",
+      "file": "@mysten_dapp-kit.js",
+      "fileHash": "bfb5f8b1",
+      "needsInterop": false
+    },
+    "@tanstack/react-query": {
+      "src": "../../node_modules/.pnpm/@tanstack+react-query@5.90.1_react@18.3.1/node_modules/@tanstack/react-query/build/modern/index.js",
+      "file": "@tanstack_react-query.js",
+      "fileHash": "69a531b2",
+      "needsInterop": false
+    },
+    "@radix-ui/themes": {
+      "src": "../../node_modules/.pnpm/@radix-ui+themes@3.2.1_@types+react-dom@18.3.7_@types+react@18.3.24__@types+react@18.3._842787872a7c20acbd19121bb5088c08/node_modules/@radix-ui/themes/dist/esm/index.js",
+      "file": "@radix-ui_themes.js",
+      "fileHash": "f4dad308",
+      "needsInterop": false
+    },
+    "@mysten/sui/client": {
+      "src": "../../node_modules/.pnpm/@mysten+sui@1.38.0_typescript@5.9.2/node_modules/@mysten/sui/dist/esm/client/index.js",
+      "file": "@mysten_sui_client.js",
+      "fileHash": "9f0ba6b2",
+      "needsInterop": false
+    },
+    "@mysten/sui/utils": {
+      "src": "../../node_modules/.pnpm/@mysten+sui@1.38.0_typescript@5.9.2/node_modules/@mysten/sui/dist/esm/utils/index.js",
+      "file": "@mysten_sui_utils.js",
+      "fileHash": "ff266955",
+      "needsInterop": false
+    },
+    "@mysten/sui/transactions": {
+      "src": "../../node_modules/.pnpm/@mysten+sui@1.38.0_typescript@5.9.2/node_modules/@mysten/sui/dist/esm/transactions/index.js",
+      "file": "@mysten_sui_transactions.js",
+      "fileHash": "b17c8230",
+      "needsInterop": false
+    },
+    "react-spinners/ClipLoader": {
+      "src": "../../node_modules/.pnpm/react-spinners@0.17.0_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/react-spinners/ClipLoader.js",
+      "file": "react-spinners_ClipLoader.js",
+      "fileHash": "69ed0178",
+      "needsInterop": true
+    },
+    "@mysten/walrus": {
+      "src": "../../node_modules/.pnpm/@mysten+walrus@0.7.0_typescript@5.9.2/node_modules/@mysten/walrus/dist/esm/index.js",
+      "file": "@mysten_walrus.js",
+      "fileHash": "dc7ee29d",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-EGRHWZRV": {
+      "file": "chunk-EGRHWZRV.js"
+    },
+    "chunk-TM5242CC": {
+      "file": "chunk-TM5242CC.js"
+    },
+    "chunk-HZD7TXUM": {
+      "file": "chunk-HZD7TXUM.js"
+    },
+    "chunk-WHIWU3SC": {
+      "file": "chunk-WHIWU3SC.js"
+    },
+    "chunk-FYOO46XK": {
+      "file": "chunk-FYOO46XK.js"
+    },
+    "chunk-LBEETZ2E": {
+      "file": "chunk-LBEETZ2E.js"
+    },
+    "chunk-OELA7GPI": {
+      "file": "chunk-OELA7GPI.js"
+    },
+    "chunk-SCZYWR5L": {
+      "file": "chunk-SCZYWR5L.js"
+    },
+    "chunk-Y3LR4VW5": {
+      "file": "chunk-Y3LR4VW5.js"
+    },
+    "chunk-CUVVAMEV": {
+      "file": "chunk-CUVVAMEV.js"
+    },
+    "chunk-G3PMV62Z": {
+      "file": "chunk-G3PMV62Z.js"
+    }
+  }
 }
