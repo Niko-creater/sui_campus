@@ -11,10 +11,38 @@ import { useNetworkVariable } from "./networkConfig";
 import { useState, useEffect } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
 import { TipPost } from "./TipPost";
-import { WalrusBasicTest } from "./components/WalrusBasicTest";
+// import { WalrusBasicTest } from "./components/WalrusBasicTest";
 import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
 import { WalrusClient, WalrusFile } from '@mysten/walrus';
 import { useUserProfiles } from "./hooks/useUserProfiles";
+
+// Helper function to safely convert timestamp to Date
+const safeTimestampToDate = (timestamp: any): Date => {
+  if (!timestamp) return new Date(0);
+  
+  // Convert to number if it's a string
+  const numTimestamp = Number(timestamp);
+  
+  // Check if it's a valid number
+  if (isNaN(numTimestamp) || numTimestamp <= 0) {
+    console.warn('Invalid timestamp:', timestamp);
+    return new Date(0);
+  }
+  
+  // Check if timestamp is in milliseconds (should be > year 2000 in ms)
+  if (numTimestamp > 946684800000) { // Jan 1, 2000 in ms
+    return new Date(numTimestamp);
+  }
+  
+  // If timestamp seems to be in seconds, convert to milliseconds
+  if (numTimestamp > 946684800) { // Jan 1, 2000 in seconds
+    return new Date(numTimestamp * 1000);
+  }
+  
+  // Fallback
+  console.warn('Timestamp seems too small, using as-is:', numTimestamp);
+  return new Date(numTimestamp);
+};
 
 interface Post {
   id: string;
@@ -126,15 +154,18 @@ export function Forum({ forumId }: { forumId: string }) {
             
             if (postData.data?.content?.dataType === "moveObject") {
               const fields = postData.data.content.fields as any;
+              console.log('Post fields:', fields);
+              console.log('created_at_ms type:', typeof fields.created_at_ms, 'value:', fields.created_at_ms);
+              
               return {
                 id: postId,
                 title: fields.title,
                 blob_id: fields.blob_id,
                 author: fields.author,
-                created_at_ms: fields.created_at_ms,
-                tip_total: fields.tip_total,
-                dislike_count: fields.dislike_count,
-                comment_index: fields.comment_index,
+                created_at_ms: Number(fields.created_at_ms), // Ensure it's a number
+                tip_total: Number(fields.tip_total),
+                dislike_count: Number(fields.dislike_count),
+                comment_index: Number(fields.comment_index),
               };
             }
           } catch (error) {
@@ -206,6 +237,7 @@ export function Forum({ forumId }: { forumId: string }) {
                 // Decode BCS-encoded data
                 const authorBytes = returnValues[0][0] as number[];
                 const contentBytes = returnValues[1][0] as number[];
+                // created_at_ms is a number, not a byte array
                 const created_at_ms = returnValues[2][0] as unknown as number;
                 
                 console.log(`Comment ${i} raw data:`, { authorBytes, contentBytes, created_at_ms });
@@ -266,7 +298,7 @@ export function Forum({ forumId }: { forumId: string }) {
                 comments.push({
                   author: author || '',
                   content: content || '',
-                  created_at_ms: created_at_ms || 0,
+                  created_at_ms: Number(created_at_ms) || 0, // Ensure it's a number
                 });
               }
             }
@@ -794,9 +826,9 @@ export function Forum({ forumId }: { forumId: string }) {
                           <Badge color="blue">
                             💬 {post.comment_index} comments
                           </Badge>
-                          <Text size="1" color="gray">
-                            {new Date(post.created_at_ms).toLocaleString()}
-                          </Text>
+                        <Text size="1" color="gray">
+                          {safeTimestampToDate(post.created_at_ms).toLocaleString()}
+                        </Text>
                         </Flex>
                         <Flex gap="2">
                           <Button
@@ -880,7 +912,7 @@ export function Forum({ forumId }: { forumId: string }) {
                                       <Badge color="orange" size="1">OP</Badge>
                                     )}
                                     <Text size="1" color="gray">
-                                      {new Date(comment.created_at_ms).toLocaleString()}
+                                      {safeTimestampToDate(comment.created_at_ms).toLocaleString()}
                                     </Text>
                                   </Flex>
                                   <Text size="2" style={{ whiteSpace: 'pre-wrap' }}>

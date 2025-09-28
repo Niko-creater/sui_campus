@@ -8,7 +8,7 @@ import { Button, Flex, Heading, Text, TextField, TextArea, Card, Dialog } from "
 import { useNetworkVariable } from "./networkConfig";
 import { useState, useEffect } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
-import { GasBalance } from "./GasBalance";
+import { BalanceDisplay } from "./BalanceDisplay";
 
 interface Profile {
   id: string;
@@ -66,6 +66,9 @@ export function ProfileManager({ currentAccount, onProfileLoaded }: ProfileManag
       const profileObject = ownedObjects.data[0];
       if (profileObject.data?.content?.dataType === "moveObject") {
         const fields = profileObject.data.content.fields as any;
+        console.log('Profile fields:', fields);
+        console.log('Profile created_at_ms type:', typeof fields.created_at_ms, 'value:', fields.created_at_ms);
+        
         const profileData: Profile = {
           id: profileObject.data.objectId,
           owner: fields.owner,
@@ -73,8 +76,8 @@ export function ProfileManager({ currentAccount, onProfileLoaded }: ProfileManag
           birthday: fields.birthday,
           gender: fields.gender,
           bio: fields.bio,
-          created_at_ms: fields.created_at_ms,
-          updated_at_ms: fields.updated_at_ms,
+          created_at_ms: Number(fields.created_at_ms), // Ensure it's a number
+          updated_at_ms: Number(fields.updated_at_ms), // Ensure it's a number
         };
         setProfile(profileData);
         onProfileLoaded(profileData);
@@ -228,8 +231,8 @@ export function ProfileManager({ currentAccount, onProfileLoaded }: ProfileManag
             </Flex>
           </Card>
           
-          {/* Gas Balance Display */}
-          <GasBalance currentAccount={currentAccount} />
+          {/* Wallet Balances Display */}
+          <BalanceDisplay currentAccount={currentAccount} />
         </>
       )}
     </>
