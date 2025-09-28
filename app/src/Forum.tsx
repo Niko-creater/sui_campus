@@ -182,8 +182,11 @@ export function Forum({ forumId }: { forumId: string }) {
       
       const validPosts = postDetails.filter(post => post !== null);
       
+      // Filter out posts with dislike_count > 3 (hide them from display)
+      const filteredPosts = validPosts.filter(post => post && post.dislike_count <= 3);
+      
       // Sort posts by dislike count (ascending - fewer dislikes first)
-      const sortedPosts = validPosts.sort((a, b) => a.dislike_count - b.dislike_count);
+      const sortedPosts = filteredPosts.sort((a, b) => a.dislike_count - b.dislike_count);
       
       setPosts(sortedPosts);
       
