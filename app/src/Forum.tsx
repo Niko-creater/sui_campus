@@ -1078,8 +1078,16 @@ export function Forum({ forumId }: { forumId: string }) {
                   </Card>
                   
                   {/* Comments Section */}
-                  {showComments[post.id] && (
-                    <Card style={{ marginTop: '8px', marginLeft: '16px' }}>
+                  <div
+                    style={{
+                      maxHeight: showComments[post.id] ? '1000px' : '0px',
+                      overflow: 'hidden',
+                      transition: 'max-height 0.3s ease-in-out, opacity 0.3s ease-in-out, margin 0.3s ease-in-out',
+                      opacity: showComments[post.id] ? 1 : 0,
+                      marginTop: showComments[post.id] ? '8px' : '0px',
+                    }}
+                  >
+                    <Card style={{ marginLeft: '16px' }}>
                       <Flex direction="column" gap="3">
                         <Heading size="3">Comments</Heading>
                         
@@ -1141,7 +1149,7 @@ export function Forum({ forumId }: { forumId: string }) {
                         </Flex>
                       </Flex>
                     </Card>
-                  )}
+                  </div>
                 </div>
               ))}
             </Flex>

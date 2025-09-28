@@ -8,7 +8,8 @@ import { Button, Flex, Heading, Text, TextField, TextArea, Card, Dialog } from "
 import { useNetworkVariable } from "./networkConfig";
 import { useState, useEffect } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
-import { BalanceDisplay } from "./BalanceDisplay";
+import { GasBalance } from "./GasBalance";
+import { WalBalance } from "./WalBalance";
 
 interface Profile {
   id: string;
@@ -221,19 +222,33 @@ export function ProfileManager({ currentAccount, onProfileLoaded }: ProfileManag
 
       {/* Profile Status Display */}
       {profile && (
-        <>
-          <Card style={{ padding: '12px', margin: '8px 0' }}>
-            <Flex direction="column" gap="2">
-              <Heading size="3">Welcome, {profile.nickname}!</Heading>
-              <Text size="2" color="gray">
-                Profile loaded successfully
-              </Text>
+        <Card style={{ padding: '16px', margin: '8px 0' }}>
+          <Flex direction="column" gap="3">
+            {/* Welcome Section */}
+            <Flex justify="between" align="center">
+              <Flex direction="column" gap="1">
+                <Heading size="4">Welcome, {profile.nickname}! 👋</Heading>
+                <Text size="2" color="gray">
+                  Ready to explore the campus forum
+                </Text>
+              </Flex>
+              <Flex direction="column" align="end" gap="1">
+                <Text size="1" color="gray" style={{ textAlign: 'right' }}>
+                  Wallet Balances
+                </Text>
+                <Text size="1" color="gray" style={{ fontStyle: 'italic' }}>
+                  Auto-refresh every 10s
+                </Text>
+              </Flex>
             </Flex>
-          </Card>
-          
-          {/* Wallet Balances */}
-          <BalanceDisplay currentAccount={currentAccount} />
-        </>
+            
+            {/* Wallet Balances - Inline */}
+            <Flex gap="4" wrap="wrap" style={{ width: '100%' }}>
+              <GasBalance currentAccount={currentAccount} />
+              <WalBalance currentAccount={currentAccount} />
+            </Flex>
+          </Flex>
+        </Card>
       )}
     </>
   );

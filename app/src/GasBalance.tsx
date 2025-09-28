@@ -52,7 +52,7 @@ export function GasBalance({ currentAccount }: GasBalanceProps) {
   const formattedBalance = suiBalance.toFixed(4);
 
   return (
-    <Card style={{ padding: '12px', margin: '8px 0' }}>
+    <Card style={{ padding: '12px', minWidth: '200px', flex: '1' }}>
       <Flex direction="column" gap="2">
         <Flex align="center" gap="2">
           <Heading size="3">Gas Balance</Heading>
@@ -62,14 +62,6 @@ export function GasBalance({ currentAccount }: GasBalanceProps) {
           <Text size="4" weight="bold">{formattedBalance}</Text>
           <Text size="2" color="gray">SUI</Text>
         </Flex>
-        <Text size="1" color="gray">
-          Total Balance: {balance.totalBalance} MIST
-        </Text>
-        {balance.coinObjects && balance.coinObjects.length > 0 && (
-          <Text size="1" color="gray">
-            Coin Objects: {balance.coinObjects.length}
-          </Text>
-        )}
       </Flex>
     </Card>
   );
