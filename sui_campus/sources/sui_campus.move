@@ -56,7 +56,7 @@ module sui_campus::forum {
         created_at_ms: u64,
     }
 
-    public struct TipRecord has store {
+    public struct TipRecord has store, drop {
         tipper: address,
         amount_mist: u64,
         created_at_ms: u64,
@@ -307,7 +307,8 @@ module sui_campus::forum {
     }
 
     public fun delete_post(
-        post: Post,
+        forum: &mut Forum,
+        mut post: Post,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
@@ -322,6 +323,66 @@ module sui_campus::forum {
             author,
             ts_ms: ts,
         });
+
+        // Find and remove the post from the forum's posts table
+        // We need to find which index this post has in the forum
+        let mut found_index = 0;
+        let mut i = 1;
+        while (i <= forum.post_index) {
+            if (sui::table::contains(&forum.posts, i)) {
+                let stored_post_id = *sui::table::borrow(&forum.posts, i);
+                if (stored_post_id == post_id) {
+                    found_index = i;
+                    break
+                };
+            };
+            i = i + 1;
+        };
+
+        // Remove the post from forum's posts table if found
+        if (found_index > 0) {
+            let _removed_post_id = sui::table::remove(&mut forum.posts, found_index);
+        };
+
+        // Remove the post from author's posts table
+        if (sui::table::contains(&forum.author_posts, author)) {
+            let author_post_table = sui::table::borrow_mut(&mut forum.author_posts, author);
+            let mut author_found_index = 0;
+            let mut j = 1;
+            while (j <= sui::table::length(author_post_table)) {
+                if (sui::table::contains(author_post_table, j)) {
+                    let stored_post_id = *sui::table::borrow(author_post_table, j);
+                    if (stored_post_id == post_id) {
+                        author_found_index = j;
+                        break
+                    };
+                };
+                j = j + 1;
+            };
+            if (author_found_index > 0) {
+                let _removed_author_post_id = sui::table::remove(author_post_table, author_found_index);
+            };
+        };
+
+        // Clear all comments first
+        let mut k = 1;
+        while (k <= post.comment_index) {
+            if (sui::table::contains(&post.comments, k)) {
+                let _comment = sui::table::remove(&mut post.comments, k);
+                // CommentData has drop ability, so we can ignore it
+            };
+            k = k + 1;
+        };
+        
+        // Clear all tips
+        let mut l = 1;
+        while (l <= post.tip_index) {
+            if (sui::table::contains(&post.tips, l)) {
+                let _tip = sui::table::remove(&mut post.tips, l);
+                // TipRecord has drop ability, so we can ignore it
+            };
+            l = l + 1;
+        };
 
         // Destructure the Post to consume all fields
         let Post {
@@ -340,8 +401,7 @@ module sui_campus::forum {
             tips,
         } = post;
 
-        // Destroy the Tables (they will be empty if no data was added)
-        // If they contain data, we need to clear them first
+        // Now destroy the empty tables
         sui::table::destroy_empty(comments);
         sui::table::destroy_empty(tips);
         

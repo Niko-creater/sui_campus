@@ -246,14 +246,15 @@ export function Forum({ forumId }: { forumId: string }) {
                 // Decode BCS-encoded data
                 const authorBytes = returnValues[0][0] as number[];
                 const contentBytes = returnValues[1][0] as number[];
-                // created_at_ms is a number, not a byte array
-                const created_at_ms = returnValues[2][0] as unknown as number;
+                // created_at_ms is also BCS-encoded as byte array
+                const created_at_ms_bytes = returnValues[2][0] as number[];
                 
-                console.log(`Comment ${i} raw data:`, { authorBytes, contentBytes, created_at_ms });
+                console.log(`Comment ${i} raw data:`, { authorBytes, contentBytes, created_at_ms_bytes });
                 
-                // Convert byte arrays to strings
+                // Convert byte arrays to strings and numbers
                 let author = '';
                 let content = '';
+                let created_at_ms = 0;
                 
                 try {
                   // For address, convert to hex string
@@ -295,11 +296,30 @@ export function Forum({ forumId }: { forumId: string }) {
                       content = stringBytes.map(byte => byte > 0 ? String.fromCharCode(byte) : '').join('');
                     }
                   }
+                  
+                  // Decode created_at_ms from BCS-encoded u64 bytes
+                  if (created_at_ms_bytes && created_at_ms_bytes.length >= 8) {
+                    // BCS encodes u64 as little-endian 8 bytes
+                    created_at_ms = 0;
+                    for (let j = 0; j < 8; j++) {
+                      created_at_ms += created_at_ms_bytes[j] * Math.pow(256, j);
+                    }
+                  } else if (created_at_ms_bytes && created_at_ms_bytes.length > 0) {
+                    // Fallback: try to interpret as big-endian
+                    created_at_ms = 0;
+                    for (let j = 0; j < created_at_ms_bytes.length; j++) {
+                      created_at_ms = created_at_ms * 256 + created_at_ms_bytes[j];
+                    }
+                  }
                 } catch (decodeError) {
                   console.error(`Error decoding comment ${i}:`, decodeError);
                   // Fallback: try to convert bytes directly to string
                   author = authorBytes ? '0x' + authorBytes.map(byte => byte.toString(16).padStart(2, '0')).join('') : '';
                   content = contentBytes ? contentBytes.map(byte => String.fromCharCode(byte)).join('') : '';
+                  // For timestamp, try simple conversion
+                  if (created_at_ms_bytes && created_at_ms_bytes.length > 0) {
+                    created_at_ms = created_at_ms_bytes[0] || 0;
+                  }
                 }
                 
                 console.log(`Comment ${i} decoded:`, { author, content, created_at_ms });
@@ -307,7 +327,7 @@ export function Forum({ forumId }: { forumId: string }) {
                 comments.push({
                   author: author || '',
                   content: content || '',
-                  created_at_ms: Number(created_at_ms) || 0, // Ensure it's a number
+                  created_at_ms: created_at_ms || 0, // Ensure it's a number
                 });
               }
             }
@@ -744,6 +764,60 @@ export function Forum({ forumId }: { forumId: string }) {
     }
   };
 
+  // Handle delete post
+  const handleDeletePost = async (postId: string, postTitle: string) => {
+    if (!currentAccount) {
+      alert("Please connect your wallet first!");
+      return;
+    }
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(`Are you sure you want to delete the post "${postTitle}"? This action cannot be undone.`);
+    if (!confirmed) {
+      return;
+    }
+
+    setWaitingForTxn("deletePost");
+
+    try {
+      const tx = new Transaction();
+      tx.moveCall({
+        arguments: [
+          tx.object(forumId), // Forum object
+          tx.object(postId), // Post object
+          tx.object("0x6"), // Clock object
+        ],
+        target: `${forumPackageId}::forum::delete_post`,
+      });
+
+      signAndExecute(
+        {
+          transaction: tx,
+        },
+        {
+          onSuccess: (tx) => {
+            suiClient.waitForTransaction({ digest: tx.digest }).then(async () => {
+              await refetch();
+              setWaitingForTxn("");
+              // Refresh posts to remove deleted post
+              fetchPosts();
+              alert("Post deleted successfully!");
+            });
+          },
+          onError: (error) => {
+            console.error('❌ Delete post failed:', error);
+            alert(`Delete failed: ${error.message}`);
+            setWaitingForTxn("");
+          },
+        },
+      );
+    } catch (error) {
+      console.error('❌ Delete post error:', error);
+      alert(`Delete failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setWaitingForTxn("");
+    }
+  };
+
   const getForumFields = (data: SuiObjectData) => {
     if (data.content?.dataType !== "moveObject") {
       return null;
@@ -771,7 +845,7 @@ export function Forum({ forumId }: { forumId: string }) {
         
         <Flex direction="column" gap="3" mt="3">
         <Flex justify="between" align="center">
-          <Text>Total Posts: {postCount}</Text>
+          {/* <Text>Total Posts: {postCount}</Text> */}
           <Flex gap="2">
             <Button
               onClick={() => fetchPosts()}
@@ -955,9 +1029,6 @@ export function Forum({ forumId }: { forumId: string }) {
                           >
                             👎 {post.dislike_count}
                           </Button>
-                          <Badge color="blue">
-                            💬 {post.comment_index} comments
-                          </Badge>
                         <Text size="1" color="gray">
                           {safeTimestampToDate(post.created_at_ms).toLocaleString()}
                         </Text>
@@ -969,17 +1040,28 @@ export function Forum({ forumId }: { forumId: string }) {
                             color="blue"
                             onClick={() => toggleComments(post.id)}
                           >
-                            {showComments[post.id] ? "🔼 Hide Comments" : "💬 View Comments"}
+                            {showComments[post.id] ? "🔼 Hide Comments" : `💬 View Comments (${post.comment_index})`}
                           </Button>
                           {currentAccount && currentAccount.address === post.author ? (
-                            <Button
-                              size="1"
-                              variant="soft"
-                              color="gray"
-                              disabled
-                            >
-                              💰 Your Post
-                            </Button>
+                            <>
+                              <Button
+                                size="1"
+                                variant="soft"
+                                color="gray"
+                                disabled
+                              >
+                                💰 Your Post
+                              </Button>
+                              <Button
+                                size="1"
+                                variant="soft"
+                                color="red"
+                                onClick={() => handleDeletePost(post.id, post.title)}
+                                disabled={waitingForTxn === "deletePost"}
+                              >
+                                {waitingForTxn === "deletePost" ? <ClipLoader size={12} /> : "🗑️ Delete"}
+                              </Button>
+                            </>
                           ) : (
                             <Button
                               size="1"
