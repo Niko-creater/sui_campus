@@ -11,6 +11,9 @@ import { useNetworkVariable } from "./networkConfig";
 import { useState, useEffect } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
 import { TipPost } from "./TipPost";
+import { WalrusBasicTest } from "./components/WalrusBasicTest";
+import { getFullnodeUrl, SuiClient } from '@mysten/sui/client';
+import { WalrusClient, WalrusFile } from '@mysten/walrus';
 
 interface Post {
   id: string;
@@ -46,6 +49,14 @@ export function Forum({ forumId }: { forumId: string }) {
   // Tip post states
   const [showTipDialog, setShowTipDialog] = useState(false);
   const [selectedPost, setSelectedPost] = useState<{ id: string; title: string } | null>(null);
+  
+  // Walrus upload states
+  const [isUploadingToWalrus, setIsUploadingToWalrus] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  
+  // Post content states
+  const [postContents, setPostContents] = useState<Record<string, string>>({});
+  const [loadingContent, setLoadingContent] = useState<Record<string, boolean>>({});
 
   // Fetch posts list
   const fetchPosts = async () => {
@@ -135,43 +146,265 @@ export function Forum({ forumId }: { forumId: string }) {
     }
   }, [data?.data]);
 
-  const createPost = () => {
+  // Upload content to Walrus and return file ID
+  const uploadToWalrus = async (content: string): Promise<string> => {
+    if (!currentAccount) {
+      throw new Error("Please connect your wallet first");
+    }
+
+    console.log('🚀 Starting Walrus upload for post content...');
+    
+    // Initialize Walrus client
+    const walrusClient = new WalrusClient({
+      network: 'testnet',
+      suiClient: new SuiClient({
+        url: getFullnodeUrl('testnet'),
+      }),
+      wasmUrl: 'https://unpkg.com/@mysten/walrus-wasm@latest/web/walrus_wasm_bg.wasm',
+    });
+
+    // Create a WalrusFile from the content
+    const file = WalrusFile.from({
+      contents: new TextEncoder().encode(content),
+      identifier: `post-content-${Date.now()}.txt`,
+      tags: {
+        'content-type': 'text/plain',
+      },
+    });
+    
+    console.log('📄 Created WalrusFile for post content');
+
+    // Use the browser-friendly writeFilesFlow
+    const flow = walrusClient.writeFilesFlow({
+      files: [file],
+    });
+
+    console.log('🔧 Encoding files...');
+    await flow.encode();
+
+    console.log('📝 Registering blob on-chain...');
+    const registerTx = flow.register({
+      epochs: 3,
+      owner: currentAccount.address,
+      deletable: true,
+    });
+
+    // Execute registration transaction
+    const registerResult = await new Promise((resolve, reject) => {
+      signAndExecute(
+        { transaction: registerTx },
+        {
+          onSuccess: (result) => {
+            console.log('✅ Registration successful:', result);
+            resolve(result);
+          },
+          onError: (error) => {
+            console.error('❌ Registration failed:', error);
+            reject(error);
+          },
+        }
+      );
+    });
+
+    // Check if registration was successful
+    if (!registerResult || !(registerResult as any).digest) {
+      throw new Error('Registration failed: No digest returned');
+    }
+
+    console.log('📤 Uploading data to storage nodes...');
+    try {
+      await flow.upload({ digest: (registerResult as any).digest });
+      console.log('✅ Upload completed successfully');
+    } catch (uploadError: any) {
+      console.error('❌ Upload failed:', uploadError);
+      throw new Error(`Upload failed: ${uploadError?.message || 'Unknown error'}`);
+    }
+
+    console.log('✅ Certifying blob availability...');
+    const certifyTx = flow.certify();
+    
+    // Execute certification transaction
+    const certifyResult = await new Promise((resolve, reject) => {
+      signAndExecute(
+        { transaction: certifyTx },
+        {
+          onSuccess: (result) => {
+            console.log('✅ Certification successful:', result);
+            resolve(result);
+          },
+          onError: (error) => {
+            console.error('❌ Certification failed:', error);
+            reject(error);
+          },
+        }
+      );
+    });
+
+    // Check if certification was successful
+    if (!certifyResult || !(certifyResult as any).digest) {
+      throw new Error('Certification failed: No digest returned');
+    }
+
+    console.log('📋 Getting file list...');
+    const files = await flow.listFiles();
+    
+    if (files.length > 0) {
+      const fileId = files[0].id;
+      console.log('✅ Upload complete! File ID:', fileId);
+      return fileId;
+    } else {
+      throw new Error('No file returned from Walrus upload');
+    }
+  };
+
+  const createPost = async () => {
     if (!newPostTitle.trim() || !newPostContent.trim()) {
       alert("Please fill in title and content");
       return;
     }
 
+    setIsUploadingToWalrus(true);
+    setUploadError(null);
     setWaitingForTxn("createPost");
 
-    const tx = new Transaction();
-    tx.moveCall({
-      arguments: [
-        tx.object(forumId), // Forum is a shared object
-        tx.pure.string(newPostTitle),
-        tx.pure.string(newPostContent), // This will be used as blob_id
-        tx.object("0x6"), // Clock object - this should be the correct way
-      ],
-      target: `${forumPackageId}::forum::create_post`,
+    try {
+      // First upload content to Walrus
+      console.log('📤 Uploading post content to Walrus...');
+      const fileId = await uploadToWalrus(newPostContent);
+      console.log('✅ Walrus upload successful, file ID:', fileId);
+
+      // Then create the post with the file ID
+      const tx = new Transaction();
+      tx.moveCall({
+        arguments: [
+          tx.object(forumId), // Forum is a shared object
+          tx.pure.string(newPostTitle),
+          tx.pure.string(fileId), // Use Walrus file ID as blob_id
+          tx.object("0x6"), // Clock object
+        ],
+        target: `${forumPackageId}::forum::create_post`,
+      });
+
+      signAndExecute(
+        {
+          transaction: tx,
+        },
+        {
+          onSuccess: (tx) => {
+            suiClient.waitForTransaction({ digest: tx.digest }).then(async () => {
+              await refetch();
+              setWaitingForTxn("");
+              setShowCreateForm(false);
+              setNewPostTitle("");
+              setNewPostContent("");
+              // Refresh posts list
+              fetchPosts();
+            });
+          },
+          onError: (error) => {
+            console.error('❌ Post creation failed:', error);
+            setUploadError(`Post creation failed: ${error.message}`);
+            setWaitingForTxn("");
+          },
+        },
+      );
+    } catch (error) {
+      console.error('❌ Walrus upload failed:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setUploadError(`Walrus upload failed: ${errorMessage}`);
+      setWaitingForTxn("");
+    } finally {
+      setIsUploadingToWalrus(false);
+    }
+  };
+
+  // Read content from Walrus using file ID
+  const readFromWalrus = async (fileId: string): Promise<string> => {
+    console.log('📖 Reading from Walrus with file ID:', fileId);
+    
+    // Initialize Walrus client for reading
+    const walrusClient = new WalrusClient({
+      network: 'testnet',
+      suiClient: new SuiClient({
+        url: getFullnodeUrl('testnet'),
+      }),
+      wasmUrl: 'https://unpkg.com/@mysten/walrus-wasm@latest/web/walrus_wasm_bg.wasm',
+      storageNodeClientOptions: {
+        onError: (error) => {
+          console.log('🌐 Storage node error:', error);
+        },
+        timeout: 60_000, // 60秒超时
+      },
     });
 
-    signAndExecute(
-      {
-        transaction: tx,
-      },
-      {
-        onSuccess: (tx) => {
-          suiClient.waitForTransaction({ digest: tx.digest }).then(async () => {
-            await refetch();
-            setWaitingForTxn("");
-            setShowCreateForm(false);
-            setNewPostTitle("");
-            setNewPostContent("");
-            // Refresh posts list
-            fetchPosts();
-          });
-        },
-      },
-    );
+    console.log('📖 Reading file from Walrus...');
+    
+    // Read the file from Walrus using file ID
+    const files = await walrusClient.getFiles({ ids: [fileId] });
+    
+    if (files.length > 0) {
+      const file = files[0];
+      console.log('📄 File object:', file);
+      
+      let content = '';
+      
+      try {
+        // 根据官方文档，WalrusFile提供了标准的API方法
+        if (typeof file.text === 'function') {
+          content = await file.text();
+          console.log('✅ Using file.text():', content);
+        } else if (typeof file.bytes === 'function') {
+          const bytes = await file.bytes();
+          content = new TextDecoder('utf-8').decode(bytes);
+          console.log('✅ Using file.bytes() + TextDecoder:', content);
+        } else {
+          // 备用方案：尝试访问内部属性
+          const fileAny = file as any;
+          if (fileAny.contents instanceof Uint8Array) {
+            content = new TextDecoder('utf-8').decode(fileAny.contents);
+            console.log('✅ Using file.contents + TextDecoder:', content);
+          } else if (fileAny.data instanceof Uint8Array) {
+            content = new TextDecoder('utf-8').decode(fileAny.data);
+            console.log('✅ Using file.data + TextDecoder:', content);
+          } else if (typeof fileAny.text === 'string') {
+            content = fileAny.text;
+            console.log('✅ Using file.text as string:', content);
+          } else {
+            content = String(fileAny);
+            console.log('✅ Using String(file):', content);
+          }
+        }
+        
+        console.log('✅ Final content:', content);
+        return content;
+        
+      } catch (decodeError) {
+        console.error('❌ Decode error:', decodeError);
+        throw new Error(`Failed to decode content: ${decodeError instanceof Error ? decodeError.message : 'Unknown decode error'}`);
+      }
+    } else {
+      throw new Error("No file found with the given file ID");
+    }
+  };
+
+  // Load post content from Walrus
+  const loadPostContent = async (postId: string, blobId: string) => {
+    if (postContents[postId] || loadingContent[postId]) {
+      return; // Already loaded or loading
+    }
+
+    setLoadingContent(prev => ({ ...prev, [postId]: true }));
+
+    try {
+      const content = await readFromWalrus(blobId);
+      setPostContents(prev => ({ ...prev, [postId]: content }));
+    } catch (error) {
+      console.error(`❌ Failed to load content for post ${postId}:`, error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setPostContents(prev => ({ ...prev, [postId]: `Error loading content: ${errorMessage}` }));
+    } finally {
+      setLoadingContent(prev => ({ ...prev, [postId]: false }));
+    }
   };
 
   // Handle tip post
@@ -208,10 +441,15 @@ export function Forum({ forumId }: { forumId: string }) {
   const postCount = forumData?.post_index || 0;
 
   return (
-    <>
-      <Heading size="3">Campus Forum</Heading>
-      
-      <Flex direction="column" gap="3" mt="3">
+      <>
+        <Heading size="3">Campus Forum</Heading>
+        
+        {/* Walrus Test Panel - Only show in development */}
+        {import.meta.env.DEV && (
+          <WalrusBasicTest />
+        )}
+        
+        <Flex direction="column" gap="3" mt="3">
         <Flex justify="between" align="center">
           <Text>Total Posts: {postCount}</Text>
           <Flex gap="2">
@@ -246,12 +484,24 @@ export function Forum({ forumId }: { forumId: string }) {
                 onChange={(e) => setNewPostContent(e.target.value)}
                 rows={4}
               />
+              {isUploadingToWalrus && (
+                <Text size="2" color="blue">
+                  📤 Uploading content to Walrus...
+                </Text>
+              )}
+              
+              {uploadError && (
+                <Text size="2" color="red">
+                  ❌ {uploadError}
+                </Text>
+              )}
+              
               <Flex gap="2">
                 <Button
                   onClick={createPost}
-                  disabled={waitingForTxn !== ""}
+                  disabled={waitingForTxn !== "" || isUploadingToWalrus}
                 >
-                  {waitingForTxn === "createPost" ? (
+                  {waitingForTxn === "createPost" || isUploadingToWalrus ? (
                     <ClipLoader size={20} />
                   ) : (
                     "Publish Post"
@@ -263,6 +513,7 @@ export function Forum({ forumId }: { forumId: string }) {
                     setShowCreateForm(false);
                     setNewPostTitle("");
                     setNewPostContent("");
+                    setUploadError(null);
                   }}
                 >
                   Cancel
@@ -294,7 +545,38 @@ export function Forum({ forumId }: { forumId: string }) {
                     <Text size="2" color="gray">
                       Author: {post.author.slice(0, 8)}...{post.author.slice(-8)}
                     </Text>
-                    <Text>{post.blob_id}</Text>
+                    
+                    {/* Post Content */}
+                    <div>
+                      {loadingContent[post.id] ? (
+                        <Flex align="center" gap="2">
+                          <ClipLoader size={16} />
+                          <Text size="2" color="gray">Loading content...</Text>
+                        </Flex>
+                      ) : postContents[post.id] ? (
+                        <Text size="2" style={{ 
+                          whiteSpace: 'pre-wrap',
+                          backgroundColor: 'var(--gray-2)',
+                          padding: '8px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--gray-6)'
+                        }}>
+                          {postContents[post.id]}
+                        </Text>
+                      ) : (
+                        <Button
+                          size="1"
+                          variant="outline"
+                          onClick={() => loadPostContent(post.id, post.blob_id)}
+                        >
+                          📖 Load Content
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
+                      File ID: {post.blob_id.slice(0, 20)}...
+                    </Text>
                     <Flex gap="3" align="center" justify="between">
                       <Flex gap="3" align="center">
                         <Badge color="green">

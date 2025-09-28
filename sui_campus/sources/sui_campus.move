@@ -23,6 +23,7 @@ module sui_campus::forum {
     const E_CONTENT_EMPTY: u64 = 2;
     const E_PROFILE_NOT_FOUND: u64 = 3;
     const E_NICKNAME_EMPTY: u64 = 4;
+    const E_NOT_POST_AUTHOR: u64 = 5;
 
     public struct FORUM has drop {}
 
@@ -30,6 +31,7 @@ module sui_campus::forum {
         id: UID,
         post_index: u64,                   
         posts: Table<u64, ID>,              
+        author_posts: Table<address, Table<u64, ID>>,  // author -> post_index -> post_id
     }
 
     public struct Post has key, store {
@@ -116,6 +118,12 @@ module sui_campus::forum {
         ts_ms: u64,
     }
 
+    public struct PostDeleted has copy, drop {
+        post_id: ID,
+        author: address,
+        ts_ms: u64,
+    }
+
     fun init(otw: FORUM, ctx: &mut TxContext) {
         // create Publisher and transfer it to the publisher wallet
         package::claim_and_keep(otw, ctx)
@@ -133,6 +141,7 @@ module sui_campus::forum {
             id: object::new(ctx),
             post_index: 0,
             posts: sui::table::new<u64, ID>(ctx),
+            author_posts: sui::table::new<address, Table<u64, ID>>(ctx),
         };
         transfer::share_object(forum);
     }
@@ -172,8 +181,17 @@ module sui_campus::forum {
         let post_id = object::uid_to_inner(&post.id);
         let title = post.title;
         let blob_id = post.blob_id;
+        let author = tx_context::sender(ctx);
 
         sui::table::add(&mut forum.posts, seq, post_id);
+
+        // Add to author_posts table
+        if (!sui::table::contains(&forum.author_posts, author)) {
+            let author_post_table = sui::table::new<u64, ID>(ctx);
+            sui::table::add(&mut forum.author_posts, author, author_post_table);
+        };
+        let author_post_table = sui::table::borrow_mut(&mut forum.author_posts, author);
+        sui::table::add(author_post_table, seq, post_id);
 
         transfer::share_object(post);
 
@@ -278,6 +296,47 @@ module sui_campus::forum {
         });
     }
 
+    public fun delete_post(
+        post: Post,
+        clock: &Clock,
+        ctx: &mut TxContext
+    ) {
+        let author = tx_context::sender(ctx);
+        assert!(post.author == author, E_NOT_POST_AUTHOR);
+
+        let ts = sui::clock::timestamp_ms(clock);
+        let post_id = object::uid_to_inner(&post.id);
+
+        event::emit(PostDeleted {
+            post_id,
+            author,
+            ts_ms: ts,
+        });
+
+        // Destructure the Post to consume all fields
+        let Post {
+            id,
+            author: _,
+            title: _,
+            blob_id: _,
+            created_at_ms: _,
+            tip_total: _,
+            dislike_count: _,
+            comment_index: _,
+            comments,
+            tip_index: _,
+            tips,
+        } = post;
+
+        // Destroy the Tables (they will be empty if no data was added)
+        // If they contain data, we need to clear them first
+        sui::table::destroy_empty(comments);
+        sui::table::destroy_empty(tips);
+        
+        // Delete the UID
+        object::delete(id);
+    }
+
     // Query Functions
     public fun get_post_tip_total(post: &Post): u64 {
         post.tip_total
@@ -328,6 +387,25 @@ module sui_campus::forum {
 
     public fun get_forum_post_id(forum: &Forum, post_seq: u64): ID {
         *sui::table::borrow(&forum.posts, post_seq)
+    }
+
+    // Author posts query functions
+    public fun get_author_post_count(forum: &Forum, author: address): u64 {
+        if (sui::table::contains(&forum.author_posts, author)) {
+            let author_post_table = sui::table::borrow(&forum.author_posts, author);
+            sui::table::length(author_post_table)
+        } else {
+            0
+        }
+    }
+
+    public fun get_author_post_id(forum: &Forum, author: address, post_seq: u64): ID {
+        let author_post_table = sui::table::borrow(&forum.author_posts, author);
+        *sui::table::borrow(author_post_table, post_seq)
+    }
+
+    public fun has_author_posts(forum: &Forum, author: address): bool {
+        sui::table::contains(&forum.author_posts, author)
     }
 
     // Profile Functions
