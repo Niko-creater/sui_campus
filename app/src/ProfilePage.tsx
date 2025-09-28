@@ -1,5 +1,4 @@
 import { Card, Flex, Heading, Text, Badge, Button } from "@radix-ui/themes";
-import { BalanceDisplay } from "./BalanceDisplay";
 
 // Helper function to safely convert timestamp to Date
 const safeTimestampToDate = (timestamp: any): Date => {
@@ -160,9 +159,6 @@ export function ProfilePage({ profile, currentAccount }: ProfilePageProps) {
           </Flex>
         </Flex>
       </Card>
-      
-      {/* Wallet Balances */}
-      <BalanceDisplay currentAccount={currentAccount} />
       
       {/* Profile Actions */}
       <Card style={{ padding: '20px' }}>

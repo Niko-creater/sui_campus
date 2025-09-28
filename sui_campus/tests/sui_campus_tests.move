@@ -58,9 +58,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -75,8 +77,14 @@ module sui_campus::sui_campus_tests {
             let post_title = forum::get_post_title(&post);
             assert!(post_title == string::utf8(b"Test Post Title"), 0);
             
-            let post_blob_id = forum::get_post_blob_id(&post);
-            assert!(post_blob_id == string::utf8(b"blob_1234567890abcdef"), 1);
+            let post_file_id = forum::get_post_file_id(&post);
+            assert!(post_file_id == string::utf8(b"file_1234567890abcdef"), 1);
+            
+            let post_content = forum::get_post_content(&post);
+            assert!(post_content == string::utf8(b"This is a short post content"), 1);
+            
+            let post_is_long_post = forum::get_post_is_long_post(&post);
+            assert!(post_is_long_post == false, 1);
             
             let post_author = forum::get_post_author(&post);
             assert!(post_author == USER, 2);
@@ -277,9 +285,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -337,9 +347,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -402,9 +414,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -464,9 +478,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -516,9 +532,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -595,9 +613,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Discussion Post");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -691,9 +711,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -770,9 +792,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -830,9 +854,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title1 = string::utf8(b"First Post");
-            let blob_id1 = string::utf8(b"blob_1234567890abcdef");
+            let content1 = string::utf8(b"This is the first post content");
+            let file_id1 = string::utf8(b"file_1234567890abcdef");
+            let is_long_post1 = false;
             
-            forum::create_post(&mut forum, title1, blob_id1, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title1, content1, file_id1, is_long_post1, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -845,9 +871,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title2 = string::utf8(b"Second Post");
-            let blob_id2 = string::utf8(b"blob_abcdef1234567890");
+            let content2 = string::utf8(b"This is the second post content");
+            let file_id2 = string::utf8(b"file_abcdef1234567890");
+            let is_long_post2 = false;
             
-            forum::create_post(&mut forum, title2, blob_id2, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title2, content2, file_id2, is_long_post2, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -860,9 +888,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title3 = string::utf8(b"Third Post");
-            let blob_id3 = string::utf8(b"blob_9876543210fedcba");
+            let content3 = string::utf8(b"This is the third post content");
+            let file_id3 = string::utf8(b"file_9876543210fedcba");
+            let is_long_post3 = false;
             
-            forum::create_post(&mut forum, title3, blob_id3, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title3, content3, file_id3, is_long_post3, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1345,9 +1375,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1419,9 +1451,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1468,9 +1502,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post Title");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1541,9 +1577,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Complex Post");
-            let blob_id = string::utf8(b"blob_complex_123");
+            let content = string::utf8(b"This is a complex post content");
+            let file_id = string::utf8(b"file_complex_123");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1615,9 +1653,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title1 = string::utf8(b"First Post");
-            let blob_id1 = string::utf8(b"blob_1234567890abcdef");
+            let content1 = string::utf8(b"This is the first post content");
+            let file_id1 = string::utf8(b"file_1234567890abcdef");
+            let is_long_post1 = false;
             
-            forum::create_post(&mut forum, title1, blob_id1, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title1, content1, file_id1, is_long_post1, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1630,9 +1670,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title2 = string::utf8(b"Second Post");
-            let blob_id2 = string::utf8(b"blob_abcdef1234567890");
+            let content2 = string::utf8(b"This is the second post content");
+            let file_id2 = string::utf8(b"file_abcdef1234567890");
+            let is_long_post2 = false;
             
-            forum::create_post(&mut forum, title2, blob_id2, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title2, content2, file_id2, is_long_post2, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1645,9 +1687,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title3 = string::utf8(b"Third Post");
-            let blob_id3 = string::utf8(b"blob_9876543210fedcba");
+            let content3 = string::utf8(b"This is the third post content");
+            let file_id3 = string::utf8(b"file_9876543210fedcba");
+            let is_long_post3 = false;
             
-            forum::create_post(&mut forum, title3, blob_id3, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title3, content3, file_id3, is_long_post3, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1708,9 +1752,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title1 = string::utf8(b"User 1 Post 1");
-            let blob_id1 = string::utf8(b"blob_user1_1");
+            let content1 = string::utf8(b"User 1 first post content");
+            let file_id1 = string::utf8(b"file_user1_1");
+            let is_long_post1 = false;
             
-            forum::create_post(&mut forum, title1, blob_id1, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title1, content1, file_id1, is_long_post1, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1722,9 +1768,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title2 = string::utf8(b"User 1 Post 2");
-            let blob_id2 = string::utf8(b"blob_user1_2");
+            let content2 = string::utf8(b"User 1 second post content");
+            let file_id2 = string::utf8(b"file_user1_2");
+            let is_long_post2 = false;
             
-            forum::create_post(&mut forum, title2, blob_id2, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title2, content2, file_id2, is_long_post2, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1737,9 +1785,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title3 = string::utf8(b"User 2 Post 1");
-            let blob_id3 = string::utf8(b"blob_user2_1");
+            let content3 = string::utf8(b"User 2 first post content");
+            let file_id3 = string::utf8(b"file_user2_1");
+            let is_long_post3 = false;
             
-            forum::create_post(&mut forum, title3, blob_id3, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title3, content3, file_id3, is_long_post3, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1752,9 +1802,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title4 = string::utf8(b"User 3 Post 1");
-            let blob_id4 = string::utf8(b"blob_user3_1");
+            let content4 = string::utf8(b"User 3 first post content");
+            let file_id4 = string::utf8(b"file_user3_1");
+            let is_long_post4 = false;
             
-            forum::create_post(&mut forum, title4, blob_id4, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title4, content4, file_id4, is_long_post4, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1766,9 +1818,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title5 = string::utf8(b"User 3 Post 2");
-            let blob_id5 = string::utf8(b"blob_user3_2");
+            let content5 = string::utf8(b"User 3 second post content");
+            let file_id5 = string::utf8(b"file_user3_2");
+            let is_long_post5 = false;
             
-            forum::create_post(&mut forum, title5, blob_id5, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title5, content5, file_id5, is_long_post5, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1780,9 +1834,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title6 = string::utf8(b"User 3 Post 3");
-            let blob_id6 = string::utf8(b"blob_user3_3");
+            let content6 = string::utf8(b"User 3 third post content");
+            let file_id6 = string::utf8(b"file_user3_3");
+            let is_long_post6 = false;
             
-            forum::create_post(&mut forum, title6, blob_id6, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title6, content6, file_id6, is_long_post6, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1890,9 +1946,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Post to be deleted");
-            let blob_id = string::utf8(b"blob_to_delete");
+            let content = string::utf8(b"This post will be deleted");
+            let file_id = string::utf8(b"file_to_delete");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -1970,9 +2028,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Test Post for Comments");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);
@@ -2079,9 +2139,11 @@ module sui_campus::sui_campus_tests {
             let clock = test_scenario::take_shared<Clock>(&scenario);
             
             let title = string::utf8(b"Empty Post");
-            let blob_id = string::utf8(b"blob_1234567890abcdef");
+            let content = string::utf8(b"This is a short post content");
+            let file_id = string::utf8(b"file_1234567890abcdef");
+            let is_long_post = false;
             
-            forum::create_post(&mut forum, title, blob_id, &clock, test_scenario::ctx(&mut scenario));
+            forum::create_post(&mut forum, title, content, file_id, is_long_post, &clock, test_scenario::ctx(&mut scenario));
             
             test_scenario::return_shared(forum);
             test_scenario::return_shared(clock);

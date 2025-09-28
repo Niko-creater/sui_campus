@@ -47,7 +47,9 @@ const safeTimestampToDate = (timestamp: any): Date => {
 interface Post {
   id: string;
   title: string;
-  blob_id: string;
+  content: string;           // Direct content storage
+  file_id: string;           // Walrus file ID (renamed from blob_id)
+  is_long_post: boolean;     // Determines content storage type
   author: string;
   created_at_ms: number;
   tip_total: number;
@@ -79,6 +81,7 @@ export function Forum({ forumId }: { forumId: string }) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newPostTitle, setNewPostTitle] = useState("");
   const [newPostContent, setNewPostContent] = useState("");
+  const [isLongPost, setIsLongPost] = useState(false);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   
@@ -160,7 +163,9 @@ export function Forum({ forumId }: { forumId: string }) {
               return {
                 id: postId,
                 title: fields.title,
-                blob_id: fields.blob_id,
+                content: fields.content || '',
+                file_id: fields.file_id || '',
+                is_long_post: Boolean(fields.is_long_post),
                 author: fields.author,
                 created_at_ms: Number(fields.created_at_ms), // Ensure it's a number
                 tip_total: Number(fields.tip_total),
@@ -495,28 +500,50 @@ export function Forum({ forumId }: { forumId: string }) {
   };
 
   const createPost = async () => {
-    if (!newPostTitle.trim() || !newPostContent.trim()) {
-      alert("Please fill in title and content");
+    if (!newPostTitle.trim()) {
+      alert("Please fill in title");
       return;
     }
 
-    setIsUploadingToWalrus(true);
-    setUploadError(null);
+    if (isLongPost && !newPostContent.trim()) {
+      alert("Please fill in content for long post");
+      return;
+    }
+
+    if (!isLongPost && !newPostContent.trim()) {
+      alert("Please fill in content for short post");
+      return;
+    }
+
     setWaitingForTxn("createPost");
+    setUploadError(null);
 
     try {
-      // First upload content to Walrus
-      console.log('📤 Uploading post content to Walrus...');
-      const fileId = await uploadToWalrus(newPostContent);
-      console.log('✅ Walrus upload successful, file ID:', fileId);
+      let fileId = "";
+      let content = "";
 
-      // Then create the post with the file ID
+      if (isLongPost) {
+        // Long post: upload content to Walrus
+        setIsUploadingToWalrus(true);
+        console.log('📤 Uploading post content to Walrus...');
+        fileId = await uploadToWalrus(newPostContent);
+        console.log('✅ Walrus upload successful, file ID:', fileId);
+        content = ""; // Content is stored in Walrus
+      } else {
+        // Short post: store content directly
+        content = newPostContent;
+        fileId = ""; // No file ID needed
+      }
+
+      // Create the post with the appropriate parameters
       const tx = new Transaction();
       tx.moveCall({
         arguments: [
           tx.object(forumId), // Forum is a shared object
           tx.pure.string(newPostTitle),
-          tx.pure.string(fileId), // Use Walrus file ID as blob_id
+          tx.pure.string(content), // Direct content storage
+          tx.pure.string(fileId), // Walrus file ID
+          tx.pure.bool(isLongPost), // Post type flag
           tx.object("0x6"), // Clock object
         ],
         target: `${forumPackageId}::forum::create_post`,
@@ -534,6 +561,7 @@ export function Forum({ forumId }: { forumId: string }) {
               setShowCreateForm(false);
               setNewPostTitle("");
               setNewPostContent("");
+              setIsLongPost(false);
               // Refresh posts list
               fetchPosts();
             });
@@ -625,7 +653,7 @@ export function Forum({ forumId }: { forumId: string }) {
   };
 
   // Load post content from Walrus
-  const loadPostContent = async (postId: string, blobId: string) => {
+  const loadPostContent = async (postId: string, fileId: string) => {
     if (postContents[postId] || loadingContent[postId]) {
       return; // Already loaded or loading
     }
@@ -633,7 +661,7 @@ export function Forum({ forumId }: { forumId: string }) {
     setLoadingContent(prev => ({ ...prev, [postId]: true }));
 
     try {
-      const content = await readFromWalrus(blobId);
+      const content = await readFromWalrus(fileId);
       setPostContents(prev => ({ ...prev, [postId]: content }));
     } catch (error) {
       console.error(`❌ Failed to load content for post ${postId}:`, error);
@@ -715,11 +743,37 @@ export function Forum({ forumId }: { forumId: string }) {
                 value={newPostTitle}
                 onChange={(e) => setNewPostTitle(e.target.value)}
               />
+              <Flex direction="column" gap="2">
+                <Text size="2" weight="bold">Post Type</Text>
+                <Flex gap="3">
+                  <Button
+                    variant={!isLongPost ? "solid" : "outline"}
+                    onClick={() => setIsLongPost(false)}
+                    size="2"
+                  >
+                    📝 Short Post (Direct Storage)
+                  </Button>
+                  <Button
+                    variant={isLongPost ? "solid" : "outline"}
+                    onClick={() => setIsLongPost(true)}
+                    size="2"
+                  >
+                    📄 Long Post (Walrus Storage)
+                  </Button>
+                </Flex>
+                <Text size="1" color="gray">
+                  {isLongPost 
+                    ? "Content will be stored on Walrus (suitable for long text, images, etc.)"
+                    : "Content will be stored directly on-chain (suitable for short text)"
+                  }
+                </Text>
+              </Flex>
+              
               <TextArea
-                placeholder="Post Content"
+                placeholder={isLongPost ? "Post Content (will be stored on Walrus)" : "Post Content (will be stored on-chain)"}
                 value={newPostContent}
                 onChange={(e) => setNewPostContent(e.target.value)}
-                rows={4}
+                rows={isLongPost ? 8 : 4}
               />
               {isUploadingToWalrus && (
                 <Text size="2" color="blue">
@@ -741,7 +795,7 @@ export function Forum({ forumId }: { forumId: string }) {
                   {waitingForTxn === "createPost" || isUploadingToWalrus ? (
                     <ClipLoader size={20} />
                   ) : (
-                    "Publish Post"
+                    isLongPost ? "📄 Publish Long Post" : "📝 Publish Short Post"
                   )}
                 </Button>
                 <Button
@@ -750,6 +804,7 @@ export function Forum({ forumId }: { forumId: string }) {
                     setShowCreateForm(false);
                     setNewPostTitle("");
                     setNewPostContent("");
+                    setIsLongPost(false);
                     setUploadError(null);
                   }}
                 >
@@ -791,7 +846,29 @@ export function Forum({ forumId }: { forumId: string }) {
                             <ClipLoader size={16} />
                             <Text size="2" color="gray">Loading content...</Text>
                           </Flex>
-                        ) : postContents[post.id] ? (
+                        ) : post.is_long_post ? (
+                          // Long post: content stored in Walrus
+                          postContents[post.id] ? (
+                            <Text size="2" style={{ 
+                              whiteSpace: 'pre-wrap',
+                              backgroundColor: 'var(--gray-2)',
+                              padding: '8px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--gray-6)'
+                            }}>
+                              {postContents[post.id]}
+                            </Text>
+                          ) : (
+                            <Button
+                              size="1"
+                              variant="outline"
+                              onClick={() => loadPostContent(post.id, post.file_id)}
+                            >
+                              📖 Load Content
+                            </Button>
+                          )
+                        ) : (
+                          // Short post: content stored directly
                           <Text size="2" style={{ 
                             whiteSpace: 'pre-wrap',
                             backgroundColor: 'var(--gray-2)',
@@ -799,22 +876,16 @@ export function Forum({ forumId }: { forumId: string }) {
                             borderRadius: '4px',
                             border: '1px solid var(--gray-6)'
                           }}>
-                            {postContents[post.id]}
+                            {post.content}
                           </Text>
-                        ) : (
-                          <Button
-                            size="1"
-                            variant="outline"
-                            onClick={() => loadPostContent(post.id, post.blob_id)}
-                          >
-                            📖 Load Content
-                          </Button>
                         )}
                       </div>
                       
-                      <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
-                        File ID: {post.blob_id.slice(0, 20)}...
-                      </Text>
+                      {post.is_long_post && (
+                        <Text size="1" color="gray" style={{ fontFamily: 'monospace' }}>
+                          File ID: {post.file_id.slice(0, 20)}...
+                        </Text>
+                      )}
                       <Flex gap="3" align="center" justify="between">
                         <Flex gap="3" align="center">
                           <Badge color="green">

@@ -38,7 +38,9 @@ module sui_campus::forum {
         id: UID,
         author: address,
         title: String,
-        blob_id: String,                        
+        content: String,                      // Direct content storage
+        file_id: String,                      // Walrus file ID (renamed from blob_id)
+        is_long_post: bool,                   // Determines if content is stored in Walrus
         created_at_ms: u64,
         tip_total: u64,                    
         dislike_count: u64,
@@ -78,7 +80,7 @@ module sui_campus::forum {
         post_id: ID,
         author: address,
         title: String,
-        blob_id: String,
+        blob_id: String, // Keep for backward compatibility, maps to file_id
         post_seq: u64,
         ts_ms: u64,
     }
@@ -148,15 +150,27 @@ module sui_campus::forum {
     public fun create_post(
         forum: &mut Forum,
         title: String,
-        blob_id: String,
+        content: String,
+        file_id: String,
+        is_long_post: bool,
         clock: &Clock,
         ctx: &mut TxContext
     ) {
         if (std::string::is_empty(&title)) {
             abort E_TITLE_EMPTY
         };
-        if (std::string::is_empty(&blob_id)) {
-            abort E_CONTENT_EMPTY
+        
+        // Validate content based on storage type
+        if (is_long_post) {
+            // For long posts, file_id should not be empty
+            if (std::string::is_empty(&file_id)) {
+                abort E_CONTENT_EMPTY
+            };
+        } else {
+            // For short posts, content should not be empty
+            if (std::string::is_empty(&content)) {
+                abort E_CONTENT_EMPTY
+            };
         };
 
         let ts = sui::clock::timestamp_ms(clock);
@@ -168,7 +182,9 @@ module sui_campus::forum {
             id: object::new(ctx),
             author: sui::tx_context::sender(ctx),
             title,
-            blob_id,
+            content,
+            file_id,
+            is_long_post,
             created_at_ms: ts,
             tip_total: 0,
             dislike_count: 0,
@@ -179,7 +195,7 @@ module sui_campus::forum {
         };
         let post_id = object::uid_to_inner(&post.id);
         let title = post.title;
-        let blob_id = post.blob_id;
+        let file_id = post.file_id;
         let author = tx_context::sender(ctx);
 
         sui::table::add(&mut forum.posts, seq, post_id);
@@ -198,7 +214,7 @@ module sui_campus::forum {
             post_id: post_id,
             author: tx_context::sender(ctx),
             title: title,
-            blob_id: blob_id,
+            blob_id: file_id, // Keep blob_id in event for backward compatibility
             post_seq: seq,
             ts_ms: ts
         });
@@ -312,7 +328,9 @@ module sui_campus::forum {
             id,
             author: _,
             title: _,
-            blob_id: _,
+            content: _,
+            file_id: _,
+            is_long_post: _,
             created_at_ms: _,
             tip_total: _,
             dislike_count: _,
@@ -353,8 +371,21 @@ module sui_campus::forum {
         post.title
     }
 
+    public fun get_post_file_id(post: &Post): String {
+        post.file_id
+    }
+
+    public fun get_post_content(post: &Post): String {
+        post.content
+    }
+
+    public fun get_post_is_long_post(post: &Post): bool {
+        post.is_long_post
+    }
+
+    // Keep for backward compatibility
     public fun get_post_blob_id(post: &Post): String {
-        post.blob_id
+        post.file_id
     }
 
     public fun get_post_created_at(post: &Post): u64 {
