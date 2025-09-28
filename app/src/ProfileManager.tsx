@@ -8,7 +8,7 @@ import { Button, Flex, Heading, Text, TextField, TextArea, Card, Dialog } from "
 import { useNetworkVariable } from "./networkConfig";
 import { useState, useEffect } from "react";
 import ClipLoader from "react-spinners/ClipLoader";
-import { BalanceDisplay } from "./BalanceDisplay";
+// import { BalanceDisplay } from "./BalanceDisplay";
 
 interface Profile {
   id: string;
@@ -230,9 +230,6 @@ export function ProfileManager({ currentAccount, onProfileLoaded }: ProfileManag
               </Text>
             </Flex>
           </Card>
-          
-          {/* Wallet Balances Display */}
-          <BalanceDisplay currentAccount={currentAccount} />
         </>
       )}
     </>
