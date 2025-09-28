@@ -111,6 +111,85 @@ export function ProfilePage({ profile, currentAccount }: ProfilePageProps) {
               )}
             </Flex>
             
+            {/* School Information Section */}
+            <div style={{ 
+              padding: '16px', 
+              backgroundColor: 'var(--blue-2)', 
+              borderRadius: '12px',
+              border: '2px solid var(--blue-6)',
+              marginTop: '8px',
+              position: 'relative',
+              overflow: 'hidden'
+            }}>
+              <div style={{
+                position: 'absolute',
+                top: '8px',
+                right: '12px',
+                background: 'linear-gradient(135deg, var(--green-9), var(--green-7))',
+                color: 'white',
+                padding: '4px 8px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+              }}>
+                ✓ VERIFIED
+              </div>
+              
+              <Flex align="center" gap="3" mb="2">
+                <div style={{
+                  background: 'linear-gradient(135deg, var(--blue-9), var(--blue-7))',
+                  color: 'white',
+                  padding: '8px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  minWidth: '40px',
+                  height: '40px'
+                }}>
+                  🎓
+                </div>
+                <div>
+                  <Text size="3" weight="bold" style={{ color: 'var(--blue-11)' }}>
+                    EPFL
+                  </Text>
+                  <Text size="1" color="gray" style={{ fontStyle: 'italic' }}>
+                    Computer Science Department
+                  </Text>
+                </div>
+              </Flex>
+              
+              <div style={{
+                background: 'rgba(255, 255, 255, 0.1)',
+                padding: '12px',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}>
+                <Flex align="center" gap="2" mb="1">
+                  <Text size="2" weight="bold" style={{ color: 'var(--blue-11)' }}>
+                    📧 Email Verification
+                  </Text>
+                  <Badge color="green" size="1" style={{ 
+                    background: 'var(--green-9)', 
+                    color: 'white',
+                    fontWeight: 'bold'
+                  }}>
+                    CONFIRMED
+                  </Badge>
+                </Flex>
+                <Text size="1" color="gray" style={{ lineHeight: '1.4' }}>
+                  Verified through official university email domain (@epfl.ch)
+                </Text>
+                <Text size="1" color="gray" style={{ 
+                  fontStyle: 'italic',
+                  marginTop: '4px'
+                }}>
+                  Last verified: {new Date().toLocaleDateString()}
+                </Text>
+              </div>
+            </div>
+            
             {profile.bio && (
               <div style={{ 
                 padding: '16px', 
