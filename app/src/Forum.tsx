@@ -181,7 +181,11 @@ export function Forum({ forumId }: { forumId: string }) {
       );
       
       const validPosts = postDetails.filter(post => post !== null);
-      setPosts(validPosts);
+      
+      // Sort posts by dislike count (ascending - fewer dislikes first)
+      const sortedPosts = validPosts.sort((a, b) => a.dislike_count - b.dislike_count);
+      
+      setPosts(sortedPosts);
       
       // Load profiles for all post authors
       validPosts.forEach(post => {
@@ -689,6 +693,57 @@ export function Forum({ forumId }: { forumId: string }) {
     fetchPosts();
   };
 
+  // Handle dislike post
+  const handleDislikePost = async (postId: string, postAuthor: string) => {
+    // Check if current user is trying to dislike their own post
+    if (currentAccount && currentAccount.address === postAuthor) {
+      alert("You cannot dislike your own post!");
+      return;
+    }
+
+    if (!currentAccount) {
+      alert("Please connect your wallet first!");
+      return;
+    }
+
+    setWaitingForTxn("dislikePost");
+
+    try {
+      const tx = new Transaction();
+      tx.moveCall({
+        arguments: [
+          tx.object(postId), // Post object
+        ],
+        target: `${forumPackageId}::forum::dislike_post`,
+      });
+
+      signAndExecute(
+        {
+          transaction: tx,
+        },
+        {
+          onSuccess: (tx) => {
+            suiClient.waitForTransaction({ digest: tx.digest }).then(async () => {
+              await refetch();
+              setWaitingForTxn("");
+              // Refresh posts to update dislike counts
+              fetchPosts();
+            });
+          },
+          onError: (error) => {
+            console.error('❌ Dislike post failed:', error);
+            alert(`Dislike failed: ${error.message}`);
+            setWaitingForTxn("");
+          },
+        },
+      );
+    } catch (error) {
+      console.error('❌ Dislike post error:', error);
+      alert(`Dislike failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setWaitingForTxn("");
+    }
+  };
+
   const getForumFields = (data: SuiObjectData) => {
     if (data.content?.dataType !== "moveObject") {
       return null;
@@ -891,9 +946,15 @@ export function Forum({ forumId }: { forumId: string }) {
                           <Badge color="green">
                             💰 {(post.tip_total / 1000000000).toFixed(4)} SUI
                           </Badge>
-                          <Badge color="red">
+                          <Button
+                            size="1"
+                            variant="soft"
+                            color="red"
+                            onClick={() => handleDislikePost(post.id, post.author)}
+                            disabled={waitingForTxn === "dislikePost" || (currentAccount?.address === post.author)}
+                          >
                             👎 {post.dislike_count}
-                          </Badge>
+                          </Button>
                           <Badge color="blue">
                             💬 {post.comment_index} comments
                           </Badge>
